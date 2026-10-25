@@ -1,6 +1,6 @@
 # OptionsQuant — Tech Stack & Version Manifest
 
-This document outlines the complete technology stack, runtimes, package versions, and architectural decisions used in **OptionsQuant**.
+This document outlines the complete technology stack, runtimes, package versions, and architectural decisions used in **OptionsQuant**. All packages are updated to the latest versions as of **October 25, 2026**.
 
 ---
 
@@ -23,10 +23,10 @@ This document outlines the complete technology stack, runtimes, package versions
 | :--- | :--- | :--- | :--- |
 | **React** | `19.3.1` | `dependencies` | UI component tree with Concurrent Mode & modern primitives |
 | **React DOM** | `19.3.1` | `dependencies` | DOM rendering layer |
-| **TypeScript** | `5.9.3` | `devDependencies`| Strict typing for financial contracts, matrices, and Greeks |
-| **Vite** | `6.4.5` | `devDependencies`| Lightning-fast HMR dev server and ESBuild/Rollup production bundler |
-| **@vitejs/plugin-react** | `4.7.0` | `devDependencies`| Fast Refresh (Babel/SWC) for React components |
-| **Lucide React** | `0.475.0` | `dependencies` | Clean vector iconography aligned with Material Design 3 |
+| **TypeScript** | `7.0.2` | `devDependencies`| Strict typing for financial contracts, matrices, and Greeks |
+| **Vite** | `8.3.5` | `devDependencies`| Next-gen Rolldown Rust-based bundler and HMR dev server (158ms builds!) |
+| **@vitejs/plugin-react** | `6.1.2` | `devDependencies`| React Fast Refresh integration |
+| **Lucide React** | `1.61.0` | `dependencies` | Clean vector iconography aligned with Material Design 3 |
 
 ---
 
@@ -34,8 +34,8 @@ This document outlines the complete technology stack, runtimes, package versions
 
 | Technology | Resolved Version | Role in Architecture |
 | :--- | :--- | :--- |
-| **Three.js** | `0.174.0` | GPU-accelerated WebGL rendering for 3D P&L Payoff Surface & 3D Volatility Skew |
-| **@types/three** | `0.174.0` | TypeScript type declarations for Three.js geometry, shaders, and lighting |
+| **Three.js** | `0.186.1` | GPU-accelerated WebGL rendering for 3D P&L Payoff Surface & 3D Volatility Skew |
+| **@types/three** | `0.186.0` | TypeScript type declarations for Three.js geometry, shaders, and lighting |
 | **HTML5 Canvas 2D** | Native Web API | Sub-millisecond 2D payoff curves, normal probability density overlays, and crosshair hover |
 | **Canvas Monte Carlo** | Custom WebGL/Canvas | Visual rendering of 25 sample geometric Brownian motion trajectories & P&L histograms |
 
@@ -81,18 +81,19 @@ This document outlines the complete technology stack, runtimes, package versions
 
 ---
 
-## 7. Build Output & Bundle Analysis
+## 7. Build Output & Bundle Analysis (Vite 8 + Rolldown)
 
-* **Total Production Build Time**: `~1.3 seconds`
+* **Production Build Speed**: `~158 milliseconds`
 * **Bundle Optimization**: Manual code-splitting implemented in [`vite.config.ts`](file:///Users/billyribeiro/dev/options-pricing-calculator/vite.config.ts)
 
 ```
-dist/index.html                   1.15 kB │ gzip:   0.57 kB
-dist/assets/index-CjIg9ORm.css   18.53 kB │ gzip:   3.39 kB
-dist/assets/vendor-BhVDo5vu.js   28.37 kB │ gzip:   8.08 kB
-dist/assets/index-r4h4Zlci.js   272.57 kB │ gzip:  81.85 kB
-dist/assets/xlsx-BsABTNv4.js    356.35 kB │ gzip: 119.92 kB
-dist/assets/three-DUkobP1-.js   469.79 kB │ gzip: 117.13 kB
+dist/index.html                             1.23 kB │ gzip:   0.58 kB
+dist/assets/index-emEz6ZGc.css             17.96 kB │ gzip:   3.31 kB
+dist/assets/rolldown-runtime-WkwZ5CU-.js    0.59 kB │ gzip:   0.36 kB
+dist/assets/index-DHVmsW-i.js              62.39 kB │ gzip:  15.55 kB
+dist/assets/vendor-CT9uoJia.js            230.99 kB │ gzip:  73.00 kB
+dist/assets/xlsx-G-OxlfVI.js              351.45 kB │ gzip: 118.10 kB
+dist/assets/three-D0pHtLUp.js             530.46 kB │ gzip: 131.42 kB
 ```
 
 ---
