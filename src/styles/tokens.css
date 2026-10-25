@@ -4,6 +4,16 @@
  */
 
 :root {
+  /* Google MD3 Window Size Class Breakpoints (as of Oct 2026) */
+  --md-breakpoint-compact-max: 599.98px;   /* < 600px (Mobile portrait, small foldables) */
+  --md-breakpoint-medium-min: 600px;       /* 600px - 839px (Tablets portrait, foldables unfolded) */
+  --md-breakpoint-medium-max: 839.98px;
+  --md-breakpoint-expanded-min: 840px;     /* 840px - 1199px (Tablets landscape, small laptops) */
+  --md-breakpoint-expanded-max: 1199.98px;
+  --md-breakpoint-large-min: 1200px;       /* 1200px - 1599px (Desktop monitors, standard laptops) */
+  --md-breakpoint-large-max: 1599.98px;
+  --md-breakpoint-xlarge-min: 1600px;      /* >= 1600px (Ultra-wide, 4K displays) */
+
   /* MD3 Light Color Palette (Baseline / Dynamic) */
   --md-sys-color-primary: #00629e;
   --md-sys-color-on-primary: #ffffff;

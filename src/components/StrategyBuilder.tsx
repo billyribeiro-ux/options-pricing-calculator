@@ -1,7 +1,7 @@
 import React from 'react';
 import { IronCondorEvaluation, UnderlyingParams } from '../quant/types';
 import { formatCurrency, formatMultiplier } from '../utils/formatters';
-import { Sliders, Sparkles, TrendingUp, TrendingDown } from 'lucide-react';
+import { Sliders, Sparkles, TrendingUp, TrendingDown, Zap } from 'lucide-react';
 
 export type StrategyMode = 'iron-condor' | 'call-spread' | 'put-spread';
 
@@ -18,6 +18,7 @@ interface StrategyBuilderProps {
   onChangePutSpread: (short: number, long: number, credit: number) => void;
   condorEval: IronCondorEvaluation;
   params: UnderlyingParams;
+  onOpenLogModal: () => void;
 }
 
 export const StrategyBuilder: React.FC<StrategyBuilderProps> = ({
@@ -32,11 +33,11 @@ export const StrategyBuilder: React.FC<StrategyBuilderProps> = ({
   onChangeCallSpread,
   onChangePutSpread,
   condorEval,
-  params
+  params,
+  onOpenLogModal
 }) => {
   const gap = params.strikeGap;
 
-  // 1-Click Fair Value solvers
   const handleSolveCallFairCredit = () => {
     onChangeCallSpread(callShort, callLong, parseFloat(condorEval.callSpread.exactPrice1to1.toFixed(2)));
   };
@@ -47,7 +48,7 @@ export const StrategyBuilder: React.FC<StrategyBuilderProps> = ({
 
   return (
     <div className="md-card md-card--elevated">
-      <div className="md-card__header">
+      <div className="md-card__header" style={{ flexWrap: 'wrap', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <h3 className="md-card__title">
             <Sliders size={18} color="var(--md-sys-color-primary)" />
@@ -74,6 +75,17 @@ export const StrategyBuilder: React.FC<StrategyBuilderProps> = ({
             </button>
           </div>
         </div>
+
+        {/* 1-Click Calculator to Journal Bridge Button */}
+        <button
+          className="md-button md-button--filled"
+          style={{ height: 32, padding: '0 12px', fontSize: 12, backgroundColor: 'var(--quant-color-gain)' }}
+          onClick={onOpenLogModal}
+          title="Log this strategy directly into the Trader Journal"
+        >
+          <Zap size={14} />
+          <span>Log to Journal</span>
+        </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: mode === 'iron-condor' ? '1fr 1fr' : '1fr', gap: 16 }}>

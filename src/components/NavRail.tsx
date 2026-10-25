@@ -1,7 +1,7 @@
 import React from 'react';
-import { LayoutDashboard, Box, Dna, FileSpreadsheet, Settings } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Box, Dna, FileSpreadsheet, Settings } from 'lucide-react';
 
-export type NavView = 'dashboard' | '3d-surface' | 'monte-carlo' | 'audit';
+export type NavView = 'dashboard' | 'journal' | '3d-surface' | 'monte-carlo' | 'audit';
 
 interface NavRailProps {
   activeView: NavView;
@@ -29,6 +29,17 @@ export const NavRail: React.FC<NavRailProps> = ({
           <LayoutDashboard size={20} />
         </div>
         <span className="md-nav-rail__label">Matrix</span>
+      </button>
+
+      <button
+        className={`md-nav-rail__item ${activeView === 'journal' ? 'md-nav-rail__item--active' : ''}`}
+        onClick={() => onSelectView('journal')}
+        title="Trader Journal & Calendar Heatmap"
+      >
+        <div className="md-nav-rail__icon-container">
+          <BookOpen size={20} />
+        </div>
+        <span className="md-nav-rail__label">Journal</span>
       </button>
 
       <button

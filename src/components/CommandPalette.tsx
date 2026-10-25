@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, LayoutDashboard, Box, Dna, FileSpreadsheet, Sun, Moon, ArrowRight } from 'lucide-react';
+import { Search, LayoutDashboard, BookOpen, Box, Dna, FileSpreadsheet, Sun, Moon, ArrowRight, Zap } from 'lucide-react';
 import { NavView } from './NavRail';
 
 interface CommandPaletteProps {
@@ -8,6 +8,7 @@ interface CommandPaletteProps {
   onSelectView: (view: NavView) => void;
   onSelectTicker: (ticker: string, price: number, iv: number) => void;
   onToggleTheme: () => void;
+  onOpenLogModal: () => void;
   theme: 'light' | 'dark';
 }
 
@@ -17,6 +18,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onSelectView,
   onSelectTicker,
   onToggleTheme,
+  onOpenLogModal,
   theme
 }) => {
   const [query, setQuery] = useState('');
@@ -26,9 +28,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         if (isOpen) onClose();
-        else {
-          // Open handled by parent or toggle
-        }
       }
       if (e.key === 'Escape' && isOpen) {
         onClose();
@@ -41,7 +40,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   if (!isOpen) return null;
 
   const actions = [
+    { id: 'log-strat', label: 'Log Current Calculator Strategy to Journal', icon: Zap, action: onOpenLogModal },
     { id: 'view-dash', label: 'Go to Strategy & Strike Matrix', icon: LayoutDashboard, action: () => onSelectView('dashboard') },
+    { id: 'view-journal', label: 'Go to Trader Journal & Calendar Heatmap', icon: BookOpen, action: () => onSelectView('journal') },
     { id: 'view-3d', label: 'Go to 3D Volatility & Payoff Visualizer', icon: Box, action: () => onSelectView('3d-surface') },
     { id: 'view-mc', label: 'Run Monte Carlo Risk Simulation (10,000 Paths)', icon: Dna, action: () => onSelectView('monte-carlo') },
     { id: 'view-audit', label: 'Open Excel Audit Bridge (Option Pricing.xlsx)', icon: FileSpreadsheet, action: () => onSelectView('audit') },
@@ -68,7 +69,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           <input
             type="text"
             className="md-input"
-            placeholder="Type a command or search ticker (AAPL, SPY, NVDA)..."
+            placeholder="Type a command (Journal, Matrix, Log, AAPL, SPY)..."
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}

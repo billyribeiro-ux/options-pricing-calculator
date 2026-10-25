@@ -1,5 +1,6 @@
 /**
- * MD3 App Layout & macOS Shell
+ * MD3 App Layout & Responsive Window Size Classes
+ * Adheres strictly to Google MD3 Responsive Guidelines (Compact, Medium, Expanded, Large, Extra-Large)
  */
 
 *, *::before, *::after {
@@ -18,9 +19,12 @@
   flex: 1;
   height: 100vh;
   overflow: hidden;
+  position: relative;
 }
 
-/* Navigation Rail (Desktop) */
+/* ==========================================================================
+   NAVIGATION: MD3 Navigation Rail (Medium, Expanded, Large)
+   ========================================================================== */
 .md-nav-rail {
   width: 80px;
   background-color: var(--md-sys-color-surface-container-low);
@@ -29,9 +33,9 @@
   flex-direction: column;
   align-items: center;
   padding: 16px 0;
-  gap: 16px;
+  gap: 12px;
   user-select: none;
-  z-index: 10;
+  z-index: 20;
   flex-shrink: 0;
 }
 
@@ -52,7 +56,7 @@
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 18px;
+  font-size: 16px;
   box-shadow: var(--md-sys-elevation-level1);
 }
 
@@ -102,6 +106,7 @@
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.2px;
+  text-align: center;
 }
 
 .md-nav-rail__footer {
@@ -112,7 +117,9 @@
   align-items: center;
 }
 
-/* App Main Viewport */
+/* ==========================================================================
+   APP MAIN VIEWPORT & TOP APP BAR
+   ========================================================================== */
 .app-main {
   flex: 1;
   display: flex;
@@ -120,9 +127,9 @@
   height: 100vh;
   overflow: hidden;
   background-color: var(--md-sys-color-background);
+  min-width: 0; /* Prevents flex children blowout */
 }
 
-/* Top App Bar */
 .md-top-app-bar {
   height: 64px;
   background-color: var(--md-sys-color-surface-container);
@@ -133,12 +140,14 @@
   padding: 0 24px;
   flex-shrink: 0;
   user-select: none;
+  gap: 16px;
 }
 
 .md-top-app-bar__title-group {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  min-width: 0;
 }
 
 .md-top-app-bar__ticker-badge {
@@ -150,12 +159,14 @@
   font-weight: 700;
   font-size: 14px;
   letter-spacing: 0.5px;
+  flex-shrink: 0;
 }
 
 .md-top-app-bar__actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 /* Scrollable Workspace */
@@ -169,7 +180,9 @@
   gap: 24px;
 }
 
-/* Grid Layouts */
+/* ==========================================================================
+   GRID LAYOUTS & BASE BREAKPOINTS
+   ========================================================================== */
 .grid-kpis {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -178,24 +191,183 @@
 
 .grid-analytics {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 24px;
-}
-
-@media (max-width: 1100px) {
-  .grid-analytics {
-    grid-template-columns: 1fr;
-  }
 }
 
 .grid-columns-split {
   display: grid;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: 360px minmax(0, 1fr);
   gap: 24px;
 }
 
-@media (max-width: 900px) {
+/* ==========================================================================
+   GOOGLE MD3 WINDOW SIZE CLASS RESPONSIVE MEDIA QUERIES
+   ========================================================================== */
+
+/* 1. COMPACT: < 600px (Mobile portrait, small foldables) */
+@media (max-width: 599.98px) {
+  .app-shell {
+    flex-direction: column-reverse; /* Navigation moves to bottom */
+  }
+
+  /* MD3 Navigation Bar (Bottom Navigation on mobile) */
+  .md-nav-rail {
+    width: 100%;
+    height: 64px;
+    border-right: none;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+    flex-direction: row;
+    justify-content: space-around;
+    padding: 0 8px;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    box-shadow: var(--md-sys-elevation-level2);
+  }
+
+  .md-nav-rail__header,
+  .md-nav-rail__footer {
+    display: none;
+  }
+
+  .md-nav-rail__item {
+    width: 20%;
+    padding: 6px 0;
+    gap: 2px;
+  }
+
+  .md-nav-rail__icon-container {
+    width: 48px;
+    height: 28px;
+  }
+
+  .md-nav-rail__label {
+    font-size: 10px;
+  }
+
+  .md-top-app-bar {
+    height: 56px;
+    padding: 0 12px;
+  }
+
+  .md-top-app-bar__ticker-badge {
+    padding: 2px 8px;
+    font-size: 12px;
+  }
+
+  .mono-large {
+    font-size: 20px;
+  }
+
+  .app-content {
+    padding: 14px;
+    padding-bottom: 80px; /* Offset for bottom navigation bar */
+    gap: 16px;
+  }
+
+  .grid-analytics {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
   .grid-columns-split {
     grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .grid-kpis {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .md-card {
+    padding: 14px;
+    border-radius: var(--md-sys-shape-corner-medium);
+  }
+
+  .md-button span {
+    display: inline;
+  }
+}
+
+/* 2. MEDIUM: 600px - 839.98px (Tablets portrait, foldables unfolded) */
+@media (min-width: 600px) and (max-width: 839.98px) {
+  .md-nav-rail {
+    width: 72px;
+    padding: 12px 0;
+  }
+
+  .md-top-app-bar {
+    padding: 0 16px;
+  }
+
+  .app-content {
+    padding: 18px;
+    gap: 18px;
+  }
+
+  .grid-analytics {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .grid-columns-split {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .grid-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+}
+
+/* 3. EXPANDED: 840px - 1199.98px (Tablets landscape, small desktop) */
+@media (min-width: 840px) and (max-width: 1199.98px) {
+  .app-content {
+    padding: 20px;
+    gap: 20px;
+  }
+
+  .grid-analytics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+
+  .grid-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+}
+
+/* 4. LARGE: 1200px - 1599.98px (Desktop monitors) */
+@media (min-width: 1200px) and (max-width: 1599.98px) {
+  .app-content {
+    padding: 24px;
+  }
+
+  .grid-kpis {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+/* 5. EXTRA LARGE: >= 1600px (Ultra-wide 4K workstations) */
+@media (min-width: 1600px) {
+  .app-content {
+    padding: 32px;
+    max-width: 1920px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .grid-kpis {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 20px;
+  }
+
+  .grid-analytics {
+    gap: 28px;
   }
 }

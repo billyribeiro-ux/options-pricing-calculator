@@ -10,11 +10,15 @@ import { SceneContainer } from './components/Visualizer3D/SceneContainer';
 import { MonteCarloView } from './components/MonteCarloView';
 import { ExcelAuditModal } from './components/ExcelAuditModal';
 import { CommandPalette } from './components/CommandPalette';
+import { JournalView } from './journal/JournalView';
+import { LogCalculatorTradeModal } from './journal/components/LogCalculatorTradeModal';
+import { saveJournalEntry } from './journal/storage';
 
 import { UnderlyingParams } from './quant/types';
 import { calculateVolatilityBands } from './quant/expectedMove';
 import { evaluateIronCondor } from './quant/ironCondor';
 import { ParsedSpreadsheetData } from './utils/xlsxParser';
+import { JournalEntry } from './journal/types';
 
 export const App: React.FC = () => {
   // Navigation & Theme
@@ -22,6 +26,7 @@ export const App: React.FC = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [isAuditOpen, setIsAuditOpen] = useState<boolean>(false);
   const [isCommandOpen, setIsCommandOpen] = useState<boolean>(false);
+  const [isLogModalOpen, setIsLogModalOpen] = useState<boolean>(false);
   const [strategyMode, setStrategyMode] = useState<StrategyMode>('iron-condor');
 
   // Baseline state initialized directly from Option Pricing.xlsx
@@ -99,6 +104,11 @@ export const App: React.FC = () => {
     setPutCredit(data.putCredit);
   };
 
+  const handleSaveLoggedTrade = (entry: JournalEntry) => {
+    saveJournalEntry(entry);
+    setActiveView('journal'); // Automatically jump to journal to see logged trade!
+  };
+
   // Calculations
   const volBands = useMemo(() => calculateVolatilityBands(params), [params]);
 
@@ -116,7 +126,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="app-shell">
-      {/* 1. Navigation Rail */}
+      {/* 1. Navigation Rail / Bottom Nav Bar */}
       <NavRail
         activeView={activeView}
         onSelectView={(v) => {
@@ -136,15 +146,16 @@ export const App: React.FC = () => {
           onOpenAudit={() => setIsAuditOpen(true)}
           onResetDefaults={handleResetDefaults}
           onOpenCommand={() => setIsCommandOpen(true)}
+          onOpenLogModal={() => setIsLogModalOpen(true)}
         />
 
         {/* Dynamic View Content */}
         <div className="app-content">
-          {/* Always display KPI Summary Cards */}
-          <KPICards condorEval={condorEval} />
-
           {activeView === 'dashboard' && (
             <>
+              {/* Always display KPI Summary Cards for calculator */}
+              <KPICards condorEval={condorEval} />
+
               {/* Parameter Inputs & Strategy Architecture */}
               <div className="grid-analytics">
                 <ParameterInputs
@@ -173,6 +184,7 @@ export const App: React.FC = () => {
                   }}
                   condorEval={condorEval}
                   params={params}
+                  onOpenLogModal={() => setIsLogModalOpen(true)}
                 />
               </div>
 
@@ -200,6 +212,10 @@ export const App: React.FC = () => {
             </>
           )}
 
+          {activeView === 'journal' && (
+            <JournalView />
+          )}
+
           {activeView === '3d-surface' && (
             <SceneContainer condorEval={condorEval} params={params} />
           )}
@@ -210,7 +226,17 @@ export const App: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Excel Audit Bridge Modal */}
+      {/* 3. 1-Click Calculator to Journal Bridge Modal */}
+      <LogCalculatorTradeModal
+        isOpen={isLogModalOpen}
+        onClose={() => setIsLogModalOpen(false)}
+        params={params}
+        condorEval={condorEval}
+        strategyMode={strategyMode}
+        onSaveTrade={handleSaveLoggedTrade}
+      />
+
+      {/* 4. Excel Audit Bridge Modal */}
       <ExcelAuditModal
         isOpen={isAuditOpen}
         onClose={() => setIsAuditOpen(false)}
@@ -219,7 +245,7 @@ export const App: React.FC = () => {
         onApplyParsedData={handleApplyParsedData}
       />
 
-      {/* 4. Quick Command Palette (Cmd+K) */}
+      {/* 5. Quick Command Palette (Cmd+K) */}
       <CommandPalette
         isOpen={isCommandOpen}
         onClose={() => setIsCommandOpen(false)}
@@ -243,6 +269,7 @@ export const App: React.FC = () => {
           setPutLong(nearest - gap * 2);
         }}
         onToggleTheme={handleToggleTheme}
+        onOpenLogModal={() => setIsLogModalOpen(true)}
         theme={theme}
       />
     </div>
