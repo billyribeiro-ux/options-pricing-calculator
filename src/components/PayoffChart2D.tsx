@@ -26,6 +26,7 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
     pnlExp: number;
     pnlNow: number;
     mouseX: number;
+    mouseY: number;
   } | null>(null);
   const [zoomMode, setZoomMode] = useState<'focus' | 'wide'>('focus');
   const [canvasSize, setCanvasSize] = useState<{ width: number; height: number }>({ width: 800, height: 320 });
@@ -515,6 +516,7 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
     const padLeft = 72;
     const padRight = 28;
     const plotWidth = canvas.clientWidth - padLeft - padRight;
@@ -525,7 +527,8 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
         price,
         pnlExp: calcPnLExpiration(price),
         pnlNow: calcPnLToday(price),
-        mouseX: x
+        mouseX: x,
+        mouseY: y
       });
     } else {
       setHoveredData(null);
@@ -583,43 +586,79 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
           onMouseLeave={() => setHoveredData(null)}
         />
 
-        {hoveredData && (
-          <div
-            className="md-card md-card--tonal"
-            style={{
-              position: 'absolute',
-              top: 66,
-              right: 16,
-              padding: '8px 12px',
-              fontSize: 12,
-              pointerEvents: 'none',
-              boxShadow: 'var(--md-sys-elevation-level2)',
-              border: '1px solid var(--md-sys-color-outline-variant)'
-            }}
-          >
-            <div>
-              Price: <span className="mono-small">${hoveredData.price.toFixed(2)}</span>
+        {hoveredData && (() => {
+          const tooltipWidth = 210;
+          const tooltipHeight = 98;
+          const flipX = hoveredData.mouseX + tooltipWidth + 24 > canvasSize.width;
+          const left = flipX
+            ? Math.max(10, hoveredData.mouseX - tooltipWidth - 14)
+            : Math.min(canvasSize.width - tooltipWidth - 10, hoveredData.mouseX + 16);
+          const top = Math.max(8, Math.min(canvasSize.height - tooltipHeight - 8, hoveredData.mouseY - 45));
+          const diffFromSpot = hoveredData.price - S0;
+          const pctFromSpot = (diffFromSpot / S0) * 100;
+
+          return (
+            <div
+              className="md-card"
+              style={{
+                position: 'absolute',
+                left: `${left}px`,
+                top: `${top}px`,
+                width: `${tooltipWidth}px`,
+                padding: '8px 12px',
+                fontSize: 12,
+                pointerEvents: 'none',
+                zIndex: 10,
+                backgroundColor: 'color-mix(in srgb, var(--md-sys-color-surface-container-high) 92%, transparent)',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                boxShadow: 'var(--md-sys-elevation-level3)',
+                border: '1px solid var(--md-sys-color-outline-variant)',
+                borderRadius: '8px',
+                transition: 'transform 0.04s ease-out'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
+                <span className="mono-small" style={{ fontSize: 13, fontWeight: 700, color: 'var(--md-sys-color-on-surface)' }}>
+                  ${hoveredData.price.toFixed(2)}
+                </span>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    color: diffFromSpot >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)'
+                  }}
+                >
+                  {diffFromSpot >= 0 ? '+' : ''}${diffFromSpot.toFixed(2)} ({diffFromSpot >= 0 ? '+' : ''}{pctFromSpot.toFixed(2)}%)
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                <span style={{ color: 'var(--md-sys-color-on-surface-variant)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: hoveredData.pnlExp >= 0 ? '#00a86b' : '#ff5630', display: 'inline-block' }} />
+                  At Expiration:
+                </span>
+                <span
+                  className="mono-small"
+                  style={{ fontWeight: 700, color: hoveredData.pnlExp >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)' }}
+                >
+                  {hoveredData.pnlExp >= 0 ? '+' : ''}{formatCurrency(hoveredData.pnlExp)}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--md-sys-color-on-surface-variant)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: '#4c9aff', display: 'inline-block' }} />
+                  Today (T=0):
+                </span>
+                <span
+                  className="mono-small"
+                  style={{ fontWeight: 700, color: hoveredData.pnlNow >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)' }}
+                >
+                  {hoveredData.pnlNow >= 0 ? '+' : ''}{formatCurrency(hoveredData.pnlNow)}
+                </span>
+              </div>
             </div>
-            <div>
-              At Expiry P&L:{' '}
-              <span
-                className="mono-small"
-                style={{ fontWeight: 700, color: hoveredData.pnlExp >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)' }}
-              >
-                {hoveredData.pnlExp >= 0 ? '+' : ''}{formatCurrency(hoveredData.pnlExp)}
-              </span>
-            </div>
-            <div>
-              Today P&L:{' '}
-              <span
-                className="mono-small"
-                style={{ fontWeight: 700, color: hoveredData.pnlNow >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)' }}
-              >
-                {hoveredData.pnlNow >= 0 ? '+' : ''}{formatCurrency(hoveredData.pnlNow)}
-              </span>
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );
