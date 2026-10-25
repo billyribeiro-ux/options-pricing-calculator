@@ -22,6 +22,7 @@ export const JournalView: React.FC = () => {
   const [entries, setEntries] = useState<JournalEntry[]>(() => getJournalEntries());
   const [subView, setSubView] = useState<'overview' | '3d' | 'analytics'>('overview');
   const [selectedTrade, setSelectedTrade] = useState<JournalEntry | null>(null);
+  const [editingTrade, setEditingTrade] = useState<JournalEntry | null>(null);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
   const [isNewTradeOpen, setIsNewTradeOpen] = useState<boolean>(false);
   const [isImportOpen, setIsImportOpen] = useState<boolean>(false);
@@ -43,6 +44,14 @@ export const JournalView: React.FC = () => {
   const handleDeleteTrade = (id: string) => {
     deleteJournalEntry(id);
     setEntries(getJournalEntries());
+    if (selectedTrade && selectedTrade.id === id) {
+      setSelectedTrade(null);
+    }
+  };
+
+  const handleOpenEditTrade = (trade: JournalEntry) => {
+    setEditingTrade(trade);
+    setIsNewTradeOpen(true);
   };
 
   return (
@@ -87,7 +96,10 @@ export const JournalView: React.FC = () => {
             <button
               className="md-button md-button--filled"
               style={{ height: 36, padding: '0 14px', fontSize: 13 }}
-              onClick={() => setIsNewTradeOpen(true)}
+              onClick={() => {
+                setEditingTrade(null);
+                setIsNewTradeOpen(true);
+              }}
             >
               <Plus size={16} />
               <span>Log Trade</span>
@@ -123,6 +135,7 @@ export const JournalView: React.FC = () => {
           <TradeLogTable
             entries={entries}
             onSelectTrade={setSelectedTrade}
+            onEditTrade={handleOpenEditTrade}
             onDeleteTrade={handleDeleteTrade}
             selectedDate={selectedCalendarDate}
           />
@@ -148,32 +161,34 @@ export const JournalView: React.FC = () => {
                 No closed trades yet. Close an open trade or log a completed trade to view equity progression.
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${equityCurve.length}, minmax(60px, 1fr))`, gap: 8, alignItems: 'end', minHeight: 150, paddingTop: 12 }}>
-                {equityCurve.map((pt, idx) => {
-                  const maxEq = Math.max(...equityCurve.map((e) => Math.abs(e.cumulativeEquity)), 100);
-                  const heightPct = Math.max(12, Math.min(100, (Math.abs(pt.cumulativeEquity) / maxEq) * 100));
-                  const isPos = pt.cumulativeEquity >= 0;
-                  return (
-                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                      <span className="mono-small" style={{ fontSize: 11, color: isPos ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)', fontWeight: 700 }}>
-                        {formatCurrency(pt.cumulativeEquity, 0)}
-                      </span>
-                      <div
-                        style={{
-                          width: '100%',
-                          height: `${heightPct * 0.9}px`,
-                          minHeight: 14,
-                          borderRadius: '6px 6px 2px 2px',
-                          backgroundColor: isPos ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)',
-                          opacity: 0.85
-                        }}
-                        title={`${pt.date} (${pt.symbol}): Trade P&L ${formatCurrency(pt.tradePnL)} | Cumulative: ${formatCurrency(pt.cumulativeEquity)} | Drawdown: -${formatCurrency(pt.drawdown)}`}
-                      />
-                      <span className="label-small" style={{ fontSize: 10 }}>{pt.symbol}</span>
-                      <span style={{ fontSize: 9, color: 'var(--md-sys-color-outline)' }}>{pt.date.slice(5)}</span>
-                    </div>
-                  );
-                })}
+              <div style={{ overflowX: 'auto', width: '100%', minWidth: 0, paddingBottom: 8 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${equityCurve.length}, minmax(65px, 1fr))`, gap: 8, alignItems: 'end', minHeight: 150, paddingTop: 12, minWidth: equityCurve.length * 70 }}>
+                  {equityCurve.map((pt, idx) => {
+                    const maxEq = Math.max(...equityCurve.map((e) => Math.abs(e.cumulativeEquity)), 100);
+                    const heightPct = Math.max(12, Math.min(100, (Math.abs(pt.cumulativeEquity) / maxEq) * 100));
+                    const isPos = pt.cumulativeEquity >= 0;
+                    return (
+                      <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                        <span className="mono-small" style={{ fontSize: 11, color: isPos ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)', fontWeight: 700 }}>
+                          {formatCurrency(pt.cumulativeEquity, 0)}
+                        </span>
+                        <div
+                          style={{
+                            width: '100%',
+                            height: `${heightPct * 0.9}px`,
+                            minHeight: 14,
+                            borderRadius: '6px 6px 2px 2px',
+                            backgroundColor: isPos ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)',
+                            opacity: 0.85
+                          }}
+                          title={`${pt.date} (${pt.symbol}): Trade P&L ${formatCurrency(pt.tradePnL)} | Cumulative: ${formatCurrency(pt.cumulativeEquity)} | Drawdown: -${formatCurrency(pt.drawdown)}`}
+                        />
+                        <span className="label-small" style={{ fontSize: 10 }}>{pt.symbol}</span>
+                        <span style={{ fontSize: 9, color: 'var(--md-sys-color-outline)' }}>{pt.date.slice(5)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -304,12 +319,21 @@ export const JournalView: React.FC = () => {
         trade={selectedTrade}
         onClose={() => setSelectedTrade(null)}
         onUpdateTrade={handleSaveNewTrade}
+        onEditTrade={handleOpenEditTrade}
+        onDeleteTrade={handleDeleteTrade}
       />
 
       <NewTradeModal
         isOpen={isNewTradeOpen}
-        onClose={() => setIsNewTradeOpen(false)}
-        onSaveTrade={handleSaveNewTrade}
+        initialTrade={editingTrade}
+        onClose={() => {
+          setIsNewTradeOpen(false);
+          setEditingTrade(null);
+        }}
+        onSaveTrade={(trade) => {
+          handleSaveNewTrade(trade);
+          setEditingTrade(null);
+        }}
       />
 
       <BrokerImportModal

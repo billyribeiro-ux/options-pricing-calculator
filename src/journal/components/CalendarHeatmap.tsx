@@ -110,36 +110,39 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({
         </div>
       </div>
 
-      {/* Weekday Header */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(7, 1fr)',
-          textAlign: 'center',
-          gap: 6,
-          fontSize: 11,
-          fontWeight: 700,
-          color: 'var(--md-sys-color-outline)',
-          marginBottom: 6
-        }}
-      >
-        <span>SUN</span>
-        <span>MON</span>
-        <span>TUE</span>
-        <span>WED</span>
-        <span>THU</span>
-        <span>FRI</span>
-        <span>SAT</span>
-      </div>
+      {/* Scrollable Container to prevent layout shift */}
+      <div style={{ overflowX: 'auto', width: '100%', minWidth: 0, paddingBottom: 4 }}>
+        <div style={{ minWidth: 480 }}>
+          {/* Weekday Header */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(7, 1fr)',
+              textAlign: 'center',
+              gap: 6,
+              fontSize: 11,
+              fontWeight: 700,
+              color: 'var(--md-sys-color-outline)',
+              marginBottom: 6
+            }}
+          >
+            <span>SUN</span>
+            <span>MON</span>
+            <span>TUE</span>
+            <span>WED</span>
+            <span>THU</span>
+            <span>FRI</span>
+            <span>SAT</span>
+          </div>
 
-      {/* Calendar Grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(7, 1fr)',
-          gap: 6
-        }}
-      >
+          {/* Calendar Grid */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(7, 1fr)',
+              gap: 6
+            }}
+          >
         {/* Leading empty cells */}
         {Array.from({ length: firstDayWeekday }).map((_, i) => (
           <div key={`empty-${i}`} style={{ height: 68, opacity: 0.15 }} />
@@ -230,6 +233,8 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({
             </div>
           );
         })}
+          </div>
+        </div>
       </div>
     </div>
   );

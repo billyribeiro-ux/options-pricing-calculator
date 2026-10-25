@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { JournalEntry, ExecutionGrade } from '../types';
 import { formatCurrency, formatPercent, formatDelta } from '../../utils/formatters';
-import { X, CheckCircle2, AlertTriangle, ShieldCheck, Tag, CheckSquare, RefreshCw, Save } from 'lucide-react';
+import { X, CheckCircle2, AlertTriangle, ShieldCheck, Tag, CheckSquare, RefreshCw, Save, Edit3, Trash2 } from 'lucide-react';
 
 interface TradeDetailModalProps {
   trade: JournalEntry | null;
   onClose: () => void;
   onUpdateTrade?: (updated: JournalEntry) => void;
+  onEditTrade?: (trade: JournalEntry) => void;
+  onDeleteTrade?: (id: string) => void;
 }
 
-export const TradeDetailModal: React.FC<TradeDetailModalProps> = ({ trade, onClose, onUpdateTrade }) => {
+export const TradeDetailModal: React.FC<TradeDetailModalProps> = ({ trade, onClose, onUpdateTrade, onEditTrade, onDeleteTrade }) => {
   const [closeDate, setCloseDate] = useState<string>('');
   const [closingPnL, setClosingPnL] = useState<number>(0);
   const [adjNote, setAdjNote] = useState<string>('');
@@ -108,14 +110,44 @@ export const TradeDetailModal: React.FC<TradeDetailModalProps> = ({ trade, onClo
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <div
               className="mono-large"
-              style={{ color: isProfit ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)' }}
+              style={{ color: isProfit ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)', marginRight: 6 }}
             >
               {formatCurrency(pnl)}
             </div>
-            <button className="md-icon-button" onClick={onClose}>
+            {onEditTrade && (
+              <button
+                className="md-button md-button--tonal"
+                style={{ height: 32, padding: '0 10px', fontSize: 12 }}
+                onClick={() => {
+                  onEditTrade(trade);
+                  onClose();
+                }}
+                title="Edit Full Trade Entry"
+              >
+                <Edit3 size={14} />
+                <span>Edit</span>
+              </button>
+            )}
+            {onDeleteTrade && (
+              <button
+                className="md-button md-button--outlined"
+                style={{ height: 32, padding: '0 10px', fontSize: 12, color: 'var(--quant-color-loss)', borderColor: 'rgba(255, 86, 48, 0.4)' }}
+                onClick={() => {
+                  if (window.confirm(`Delete trade entry ${trade.symbol} (${trade.strategyType})?`)) {
+                    onDeleteTrade(trade.id);
+                    onClose();
+                  }
+                }}
+                title="Delete Trade Entry"
+              >
+                <Trash2 size={14} />
+                <span>Delete</span>
+              </button>
+            )}
+            <button className="md-icon-button" onClick={onClose} title="Close Modal">
               <X size={20} />
             </button>
           </div>
@@ -432,10 +464,41 @@ export const TradeDetailModal: React.FC<TradeDetailModalProps> = ({ trade, onClo
           </div>
         </div>
 
-        <div className="md-dialog__actions">
-          <button className="md-button md-button--filled" onClick={onClose}>
-            Done
-          </button>
+        <div className="md-dialog__actions" style={{ justifyContent: 'space-between' }}>
+          <div>
+            {onDeleteTrade && (
+              <button
+                className="md-button md-button--text"
+                style={{ color: 'var(--quant-color-loss)', padding: '0 8px', fontSize: 12 }}
+                onClick={() => {
+                  if (window.confirm(`Are you sure you want to delete this trade on ${trade.symbol}?`)) {
+                    onDeleteTrade(trade.id);
+                    onClose();
+                  }
+                }}
+              >
+                <Trash2 size={14} style={{ marginRight: 4 }} />
+                <span>Delete Trade</span>
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {onEditTrade && (
+              <button
+                className="md-button md-button--tonal"
+                onClick={() => {
+                  onEditTrade(trade);
+                  onClose();
+                }}
+              >
+                <Edit3 size={14} style={{ marginRight: 4 }} />
+                <span>Edit Full Trade</span>
+              </button>
+            )}
+            <button className="md-button md-button--filled" onClick={onClose}>
+              Done
+            </button>
+          </div>
         </div>
       </div>
     </div>

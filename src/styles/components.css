@@ -397,16 +397,20 @@ textarea.md-input-wrapper:focus,
 /* ==================== FINANCIAL DATA TABLE ==================== */
 .md-table-container {
   overflow-x: auto;
+  width: 100%;
+  min-width: 0;
   border-radius: var(--md-sys-shape-corner-medium);
   border: 1px solid var(--md-sys-color-outline-variant);
+  scrollbar-gutter: stable;
 }
 
 .md-table {
   width: 100%;
+  min-width: 960px;
   border-collapse: collapse;
-  text-align: right;
+  text-align: left;
   font-size: 13px;
-  font-family: var(--md-ref-typeface-mono);
+  font-family: var(--md-ref-typeface-plain);
 }
 
 .md-table th {
@@ -419,10 +423,6 @@ textarea.md-input-wrapper:focus,
   letter-spacing: 0.5px;
   border-bottom: 1px solid var(--md-sys-color-outline-variant);
   white-space: nowrap;
-}
-
-.md-table th:first-child,
-.md-table td:first-child {
   text-align: left;
 }
 
@@ -431,6 +431,18 @@ textarea.md-input-wrapper:focus,
   border-bottom: 1px solid var(--md-sys-color-surface-variant);
   color: var(--md-sys-color-on-surface);
   white-space: nowrap;
+  text-align: left;
+}
+
+.md-table th.text-right,
+.md-table td.text-right,
+.md-table td.mono-small {
+  text-align: right;
+}
+
+.md-table th.text-center,
+.md-table td.text-center {
+  text-align: center;
 }
 
 .md-table tr:hover {
@@ -470,6 +482,7 @@ textarea.md-input-wrapper:focus,
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   display: flex;
   flex-direction: column;
   padding: 28px;

@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { JournalEntry, TradeLeg, StrategyType, TradeStatus, ExecutionGrade, MindsetTag } from '../types';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { X, Plus, Edit3, Trash2 } from 'lucide-react';
 
 interface NewTradeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSaveTrade: (entry: JournalEntry) => void;
+  initialTrade?: JournalEntry | null;
 }
 
 const ALL_MINDSET_TAGS: MindsetTag[] = [
@@ -20,7 +21,7 @@ const ALL_MINDSET_TAGS: MindsetTag[] = [
   'boredom entry'
 ];
 
-export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, onSaveTrade }) => {
+export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, onSaveTrade, initialTrade }) => {
   const [symbol, setSymbol] = useState('SPY');
   const [strategyType, setStrategyType] = useState<StrategyType>('bull-put-spread');
   const [status, setStatus] = useState<TradeStatus>('open');
@@ -40,6 +41,47 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
     { id: 'leg-1', type: 'put', position: 'sell', strike: 575, entryPrice: 1.45, contracts: 5, status: 'open' },
     { id: 'leg-2', type: 'put', position: 'buy', strike: 570, entryPrice: 0.60, contracts: 5, status: 'open' }
   ]);
+
+  useEffect(() => {
+    if (initialTrade) {
+      setSymbol(initialTrade.symbol);
+      setStrategyType(initialTrade.strategyType);
+      setStatus(initialTrade.status);
+      setEntryDate(initialTrade.entryDate);
+      setExitDate(initialTrade.exitDate || '');
+      setNetPrice(initialTrade.netCreditOrDebitPerShare);
+      setContracts(initialTrade.legs[0]?.contracts || 1);
+      setRealizedPnL(initialTrade.realizedPnL ?? 0);
+      setMaxRisk(initialTrade.maxRiskDollars);
+      setThesis(initialTrade.thesisNotes || '');
+      setConfidence(initialTrade.psychology?.confidence || 8);
+      setExecutionGrade(initialTrade.psychology?.executionGrade || 'A');
+      setRulesFollowed(initialTrade.psychology?.rulesFollowed ?? true);
+      setSelectedTags(initialTrade.psychology?.mindsetTags || ['disciplined']);
+      setLegs(initialTrade.legs.length > 0 ? initialTrade.legs : [
+        { id: 'leg-1', type: 'put', position: 'sell', strike: 575, entryPrice: 1.45, contracts: 5, status: 'open' }
+      ]);
+    } else {
+      setSymbol('SPY');
+      setStrategyType('bull-put-spread');
+      setStatus('open');
+      setEntryDate(new Date().toISOString().split('T')[0]);
+      setExitDate('');
+      setNetPrice(0.85);
+      setContracts(5);
+      setRealizedPnL(350);
+      setMaxRisk(2075);
+      setThesis('');
+      setConfidence(8);
+      setExecutionGrade('A');
+      setRulesFollowed(true);
+      setSelectedTags(['disciplined', 'pre-market plan']);
+      setLegs([
+        { id: 'leg-1', type: 'put', position: 'sell', strike: 575, entryPrice: 1.45, contracts: 5, status: 'open' },
+        { id: 'leg-2', type: 'put', position: 'buy', strike: 570, entryPrice: 0.60, contracts: 5, status: 'open' }
+      ]);
+    }
+  }, [initialTrade, isOpen]);
 
   const optionStyle: React.CSSProperties = {
     color: 'var(--md-sys-color-on-surface)',
@@ -81,7 +123,7 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
   const handleSave = () => {
     const totalPremium = netPrice * contracts * 100;
     const newEntry: JournalEntry = {
-      id: `manual-${Date.now()}`,
+      id: initialTrade ? initialTrade.id : `manual-${Date.now()}`,
       entryDate,
       exitDate: status === 'closed' ? exitDate || entryDate : undefined,
       symbol: symbol.toUpperCase(),
@@ -92,7 +134,7 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
         contracts,
         status: status === 'closed' ? 'closed' : 'open'
       })),
-      adjustments: [],
+      adjustments: initialTrade ? initialTrade.adjustments : [],
       netCreditOrDebitPerShare: netPrice,
       totalPremiumDollars: totalPremium,
       feesAndCommissions: contracts * legs.length * 0.65,
@@ -108,7 +150,7 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
         executionGrade
       },
       thesisNotes: thesis || `${strategyType} on ${symbol.toUpperCase()}. Manual journal log entry.`,
-      tags: ['manual-entry']
+      tags: initialTrade ? initialTrade.tags : ['manual-entry']
     };
 
     onSaveTrade(newEntry);
@@ -120,8 +162,14 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
       <div className="md-dialog" style={{ maxWidth: 620 }} onClick={(e) => e.stopPropagation()}>
         <div className="md-dialog__header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Plus size={22} color="var(--md-sys-color-primary)" />
-            <h2 className="md-dialog__title">Manual Trade Entry</h2>
+            {initialTrade ? (
+              <Edit3 size={22} color="var(--md-sys-color-primary)" />
+            ) : (
+              <Plus size={22} color="var(--md-sys-color-primary)" />
+            )}
+            <h2 className="md-dialog__title">
+              {initialTrade ? `Edit Trade Entry — ${initialTrade.symbol}` : 'Manual Trade Entry'}
+            </h2>
           </div>
           <button className="md-icon-button" onClick={onClose}>
             <X size={20} />
@@ -464,7 +512,7 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
             Cancel
           </button>
           <button className="md-button md-button--filled" onClick={handleSave}>
-            Save to Journal
+            {initialTrade ? 'Save Changes' : 'Save to Journal'}
           </button>
         </div>
       </div>

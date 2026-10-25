@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { JournalEntry, StrategyType, TradeStatus } from '../types';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
-import { Search, Eye, Trash2 } from 'lucide-react';
+import { Search, Eye, Edit3, Trash2 } from 'lucide-react';
 
 interface TradeLogTableProps {
   entries: JournalEntry[];
   onSelectTrade: (trade: JournalEntry) => void;
+  onEditTrade?: (trade: JournalEntry) => void;
   onDeleteTrade: (id: string) => void;
   selectedDate: string | null;
 }
@@ -13,6 +14,7 @@ interface TradeLogTableProps {
 export const TradeLogTable: React.FC<TradeLogTableProps> = ({
   entries,
   onSelectTrade,
+  onEditTrade,
   onDeleteTrade,
   selectedDate
 }) => {
@@ -121,17 +123,17 @@ export const TradeLogTable: React.FC<TradeLogTableProps> = ({
         <table className="md-table">
           <thead>
             <tr>
-              <th>Date</th>
-              <th>Symbol</th>
-              <th>Strategy</th>
-              <th>Status</th>
-              <th>Legs Summary</th>
-              <th>Credit / Debit</th>
-              <th>Realized P&L</th>
-              <th>Return (RoR)</th>
-              <th>Grade</th>
-              <th>Discipline</th>
-              <th>Actions</th>
+              <th style={{ width: 95 }}>Date</th>
+              <th style={{ width: 85 }}>Symbol</th>
+              <th style={{ width: 140 }}>Strategy</th>
+              <th style={{ width: 90 }}>Status</th>
+              <th style={{ minWidth: 150 }}>Legs Summary</th>
+              <th className="text-right" style={{ width: 115 }}>Credit / Debit</th>
+              <th className="text-right" style={{ width: 125 }}>Realized P&L</th>
+              <th className="text-right" style={{ width: 100 }}>Return (RoR)</th>
+              <th className="text-center" style={{ width: 75 }}>Grade</th>
+              <th className="text-center" style={{ width: 120 }}>Discipline</th>
+              <th className="text-right" style={{ width: 110 }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -196,7 +198,7 @@ export const TradeLogTable: React.FC<TradeLogTableProps> = ({
                     )}
                   </td>
                   <td>
-                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                    <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
                       <button
                         className="md-icon-button"
                         style={{ width: 28, height: 28 }}
@@ -208,8 +210,21 @@ export const TradeLogTable: React.FC<TradeLogTableProps> = ({
                       <button
                         className="md-icon-button"
                         style={{ width: 28, height: 28 }}
-                        onClick={(e) => { e.stopPropagation(); onDeleteTrade(trade.id); }}
-                        title="Delete Trade"
+                        onClick={(e) => { e.stopPropagation(); onEditTrade?.(trade); }}
+                        title="Edit Trade Entry"
+                      >
+                        <Edit3 size={14} color="var(--md-sys-color-primary)" />
+                      </button>
+                      <button
+                        className="md-icon-button"
+                        style={{ width: 28, height: 28 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`Delete trade entry ${trade.symbol} (${trade.strategyType})?`)) {
+                            onDeleteTrade(trade.id);
+                          }
+                        }}
+                        title="Delete Trade Entry"
                       >
                         <Trash2 size={14} color="var(--quant-color-loss)" />
                       </button>
