@@ -191,7 +191,8 @@ export const LogCalculatorTradeModal: React.FC<LogCalculatorTradeModalProps> = (
             <select
               id="log-calc-grade"
               name="executionGrade"
-              className="md-input-wrapper"
+              className="md-select"
+              style={{ color: 'var(--md-sys-color-on-surface)' }}
               value={executionGrade}
               onChange={(e) => setExecutionGrade(e.target.value as any)}
             >

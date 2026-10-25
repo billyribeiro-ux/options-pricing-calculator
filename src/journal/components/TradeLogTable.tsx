@@ -72,31 +72,47 @@ export const TradeLogTable: React.FC<TradeLogTableProps> = ({
           <select
             id="trade-strategy-filter"
             name="strategyFilter"
-            className="md-input-wrapper"
-            style={{ height: 36, fontSize: 12, padding: '0 8px', borderRadius: 8 }}
+            className="md-select"
+            style={{
+              height: 36,
+              fontSize: 12,
+              padding: '0 10px',
+              borderRadius: 8,
+              color: 'var(--md-sys-color-on-surface)',
+              backgroundColor: 'var(--md-sys-color-surface-container)',
+              border: '1px solid var(--md-sys-color-outline-variant)'
+            }}
             value={strategyFilter}
             onChange={(e) => setStrategyFilter(e.target.value as any)}
           >
-            <option value="all">All Strategies</option>
-            <option value="iron-condor">Iron Condor</option>
-            <option value="bull-put-spread">Bull Put Spread</option>
-            <option value="bear-call-spread">Bear Call Spread</option>
-            <option value="iron-butterfly">Iron Butterfly</option>
-            <option value="straddle">Straddle</option>
+            <option value="all" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>All Strategies</option>
+            <option value="iron-condor" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>Iron Condor</option>
+            <option value="bull-put-spread" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>Bull Put Spread</option>
+            <option value="bear-call-spread" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>Bear Call Spread</option>
+            <option value="iron-butterfly" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>Iron Butterfly</option>
+            <option value="straddle" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>Straddle</option>
           </select>
 
           <label htmlFor="trade-status-filter" style={{ display: 'none' }}>Status Filter</label>
           <select
             id="trade-status-filter"
             name="statusFilter"
-            className="md-input-wrapper"
-            style={{ height: 36, fontSize: 12, padding: '0 8px', borderRadius: 8 }}
+            className="md-select"
+            style={{
+              height: 36,
+              fontSize: 12,
+              padding: '0 10px',
+              borderRadius: 8,
+              color: 'var(--md-sys-color-on-surface)',
+              backgroundColor: 'var(--md-sys-color-surface-container)',
+              border: '1px solid var(--md-sys-color-outline-variant)'
+            }}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
           >
-            <option value="all">All Status</option>
-            <option value="open">Open</option>
-            <option value="closed">Closed</option>
+            <option value="all" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>All Status</option>
+            <option value="open" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>Open</option>
+            <option value="closed" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>Closed</option>
           </select>
         </div>
       </div>
@@ -137,7 +153,7 @@ export const TradeLogTable: React.FC<TradeLogTableProps> = ({
                     </span>
                   </td>
                   <td>
-                    <span style={{ textTransform: 'capitalize', fontSize: 12 }}>
+                    <span style={{ textTransform: 'capitalize', fontSize: 12, fontWeight: 500, color: 'var(--md-sys-color-on-surface)' }}>
                       {trade.strategyType.replace(/-/g, ' ')}
                     </span>
                   </td>
@@ -147,7 +163,7 @@ export const TradeLogTable: React.FC<TradeLogTableProps> = ({
                       style={{
                         fontSize: 10,
                         backgroundColor: trade.status === 'open' ? 'var(--quant-color-neutral-container)' : 'var(--md-sys-color-surface-container-high)',
-                        color: trade.status === 'open' ? 'var(--quant-color-neutral)' : 'var(--md-sys-color-on-surface-variant)'
+                        color: trade.status === 'open' ? 'var(--quant-color-neutral)' : 'var(--md-sys-color-on-surface)'
                       }}
                     >
                       {trade.status.toUpperCase()}

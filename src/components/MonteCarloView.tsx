@@ -160,8 +160,8 @@ export const MonteCarloView: React.FC<MonteCarloViewProps> = ({ condorEval, para
           <select
             id="mc-sim-count"
             name="simCount"
-            className="md-input-wrapper"
-            style={{ height: 32, fontSize: 12, padding: '0 8px', borderRadius: 8 }}
+            className="md-select"
+            style={{ height: 32, fontSize: 12, padding: '0 8px', borderRadius: 8, color: 'var(--md-sys-color-on-surface)' }}
             value={simCount}
             onChange={(e) => setSimCount(parseInt(e.target.value, 10))}
           >

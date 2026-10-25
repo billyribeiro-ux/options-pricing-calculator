@@ -373,8 +373,8 @@ export const TradeDetailModal: React.FC<TradeDetailModalProps> = ({ trade, onClo
                   <select
                     id="detail-close-grade"
                     name="closeGrade"
-                    className="md-input-wrapper"
-                    style={{ height: 36 }}
+                    className="md-select"
+                    style={{ height: 36, color: 'var(--md-sys-color-on-surface)' }}
                     value={grade}
                     onChange={(e) => setGrade(e.target.value as ExecutionGrade)}
                   >

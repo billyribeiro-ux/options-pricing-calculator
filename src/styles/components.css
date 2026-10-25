@@ -195,7 +195,37 @@
   border-radius: var(--md-sys-shape-corner-small);
   padding: 0 10px;
   height: 42px;
+  color: var(--md-sys-color-on-surface);
   transition: border-color var(--md-sys-motion-duration-short) var(--md-sys-motion-easing-standard);
+}
+
+/* ==================== SELECT & DROPDOWN CONTROLS ==================== */
+select,
+select.md-input-wrapper,
+.md-select {
+  color: var(--md-sys-color-on-surface);
+  background-color: var(--md-sys-color-surface-container);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-small);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+}
+
+select:focus,
+select.md-input-wrapper:focus,
+.md-select:focus {
+  border-color: var(--md-sys-color-primary);
+}
+
+select option,
+.md-select option {
+  background-color: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+  font-family: inherit;
+  font-size: 12px;
 }
 
 .md-input-wrapper:focus-within {

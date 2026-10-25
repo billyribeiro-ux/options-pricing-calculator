@@ -4,6 +4,7 @@
  */
 
 :root {
+  color-scheme: light;
   /* Google MD3 Window Size Class Breakpoints (as of Oct 2026) */
   --md-breakpoint-compact-max: 599.98px;   /* < 600px (Mobile portrait, small foldables) */
   --md-breakpoint-medium-min: 600px;       /* 600px - 839px (Tablets portrait, foldables unfolded) */

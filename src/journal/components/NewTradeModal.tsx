@@ -143,7 +143,8 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
             <select
               id="new-trade-strategy"
               name="strategyType"
-              className="md-input-wrapper"
+              className="md-select"
+              style={{ color: 'var(--md-sys-color-on-surface)' }}
               value={strategyType}
               onChange={(e) => setStrategyType(e.target.value as any)}
             >
@@ -164,7 +165,8 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
             <select
               id="new-trade-status"
               name="status"
-              className="md-input-wrapper"
+              className="md-select"
+              style={{ color: 'var(--md-sys-color-on-surface)' }}
               value={status}
               onChange={(e) => setStatus(e.target.value as any)}
             >
@@ -292,7 +294,8 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
             <select
               id="new-trade-grade"
               name="executionGrade"
-              className="md-input-wrapper"
+              className="md-select"
+              style={{ color: 'var(--md-sys-color-on-surface)' }}
               value={executionGrade}
               onChange={(e) => setExecutionGrade(e.target.value as any)}
             >
@@ -341,8 +344,8 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
                   id={`new-trade-leg-pos-${idx}`}
                   name={`legPosition_${idx}`}
                   aria-label={`Leg ${idx + 1} Position`}
-                  className="md-input-wrapper"
-                  style={{ height: 30, fontSize: 12 }}
+                  className="md-select"
+                  style={{ height: 30, fontSize: 12, color: 'var(--md-sys-color-on-surface)' }}
                   value={leg.position}
                   onChange={(e) => handleUpdateLeg(idx, { position: e.target.value as 'buy' | 'sell' })}
                 >
@@ -353,8 +356,8 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
                   id={`new-trade-leg-type-${idx}`}
                   name={`legType_${idx}`}
                   aria-label={`Leg ${idx + 1} Type`}
-                  className="md-input-wrapper"
-                  style={{ height: 30, fontSize: 12 }}
+                  className="md-select"
+                  style={{ height: 30, fontSize: 12, color: 'var(--md-sys-color-on-surface)' }}
                   value={leg.type}
                   onChange={(e) => handleUpdateLeg(idx, { type: e.target.value as 'call' | 'put' })}
                 >

@@ -4,6 +4,7 @@
  */
 
 [data-theme="dark"] {
+  color-scheme: dark;
   --md-sys-color-primary: #9acbfa;
   --md-sys-color-on-primary: #003355;
   --md-sys-color-primary-container: #004a78;
