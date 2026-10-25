@@ -301,7 +301,7 @@ export const Journal3DLandscape: React.FC<Journal3DLandscapeProps> = ({ entries,
   }, [entries, mode, wireframe, autoRotate, onSelectTrade]);
 
   return (
-    <div className="md-card md-card--elevated" style={{ height: '100%', minHeight: 480, display: 'flex', flexDirection: 'column' }}>
+    <div className="md-card md-card--elevated" style={{ minHeight: 520, display: 'flex', flexDirection: 'column' }}>
       <div className="md-card__header" style={{ marginBottom: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <Mountain size={18} color="var(--md-sys-color-primary)" />

@@ -7,6 +7,36 @@
   box-sizing: border-box;
 }
 
+/* ==========================================================================
+   MD3 CUSTOM SLEEK SCROLLBARS (Vertical & Horizontal Toggles)
+   Blends seamlessly into the background surface; discreet and non-intrusive
+   ========================================================================== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--md-sys-color-outline-variant) 40%, transparent);
+  border-radius: var(--md-sys-shape-corner-full);
+  border: 1px solid transparent;
+  background-clip: content-box;
+  transition: background-color var(--md-sys-motion-duration-short) ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--md-sys-color-outline) 65%, transparent);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--md-sys-color-outline-variant) 40%, transparent) transparent;
+}
+
 #root {
   min-height: 100vh;
   display: flex;
@@ -28,7 +58,7 @@
 .md-nav-rail {
   width: 80px;
   background-color: var(--md-sys-color-surface-container-low);
-  border-right: 1px solid var(--md-sys-color-outline-variant);
+  border-right: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant) 35%, transparent);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -98,8 +128,8 @@
 }
 
 .md-nav-rail__item--active .md-nav-rail__icon-container {
-  background-color: var(--md-sys-color-secondary-container);
-  color: var(--md-sys-color-on-secondary-container);
+  background-color: color-mix(in srgb, var(--md-sys-color-primary) 18%, var(--md-sys-color-surface-container-high));
+  color: var(--md-sys-color-primary);
 }
 
 .md-nav-rail__label {
@@ -131,22 +161,25 @@
 }
 
 .md-top-app-bar {
-  height: 64px;
+  min-height: 64px;
+  height: auto;
   background-color: var(--md-sys-color-surface-container);
   border-bottom: 1px solid var(--md-sys-color-outline-variant);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
+  flex-wrap: wrap;
+  padding: 8px 24px;
   flex-shrink: 0;
   user-select: none;
-  gap: 16px;
+  gap: 12px;
 }
 
 .md-top-app-bar__title-group {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -165,7 +198,8 @@
 .md-top-app-bar__actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
   flex-shrink: 0;
 }
 
@@ -180,19 +214,44 @@
   gap: 24px;
 }
 
+.app-content > * {
+  flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
+}
+
 /* ==========================================================================
    GRID LAYOUTS & BASE BREAKPOINTS
    ========================================================================== */
 .grid-kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
   gap: 16px;
 }
 
 .grid-analytics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
   gap: 24px;
+}
+
+.grid-wings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.grid-wing-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
+  gap: 10px;
+}
+
+.grid-params {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
 }
 
 .grid-columns-split {
@@ -332,12 +391,12 @@
   }
 
   .grid-analytics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     gap: 20px;
   }
 
   .grid-kpis {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
     gap: 16px;
   }
 }
@@ -349,7 +408,7 @@
   }
 
   .grid-kpis {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   }
 }
 

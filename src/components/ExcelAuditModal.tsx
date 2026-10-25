@@ -162,9 +162,11 @@ export const ExcelAuditModal: React.FC<ExcelAuditModalProps> = ({
           </div>
 
           <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center', gap: 10 }}>
-            <label className="md-button md-button--tonal" style={{ cursor: 'pointer', height: 32, fontSize: 12 }}>
+            <label htmlFor="excel-file-import" className="md-button md-button--tonal" style={{ cursor: 'pointer', height: 32, fontSize: 12 }}>
               <span>Browse Spreadsheet</span>
               <input
+                id="excel-file-import"
+                name="excelFile"
                 type="file"
                 accept=".xlsx,.xls"
                 style={{ display: 'none' }}

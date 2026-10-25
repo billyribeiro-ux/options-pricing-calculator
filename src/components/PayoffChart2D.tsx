@@ -533,7 +533,7 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
   };
 
   return (
-    <div className="md-card md-card--elevated" style={{ height: '100%', minHeight: 390, display: 'flex', flexDirection: 'column' }}>
+    <div className="md-card md-card--elevated" style={{ minHeight: 390, display: 'flex', flexDirection: 'column' }}>
       <div className="md-card__header" style={{ marginBottom: 8, flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <h3 className="md-card__title">

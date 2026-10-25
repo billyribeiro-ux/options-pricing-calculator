@@ -156,7 +156,10 @@ export const MonteCarloView: React.FC<MonteCarloViewProps> = ({ condorEval, para
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <label htmlFor="mc-sim-count" style={{ display: 'none' }}>Simulation Paths</label>
           <select
+            id="mc-sim-count"
+            name="simCount"
             className="md-input-wrapper"
             style={{ height: 32, fontSize: 12, padding: '0 8px', borderRadius: 8 }}
             value={simCount}

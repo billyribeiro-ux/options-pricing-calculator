@@ -26,12 +26,14 @@ export const ParameterInputs: React.FC<ParameterInputsProps> = ({
         </span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
+      <div className="grid-params">
         {/* Ticker */}
         <div className="md-field-group">
-          <label className="md-field-label">Stock Ticker</label>
+          <label htmlFor="param-symbol" className="md-field-label">Stock Ticker</label>
           <div className="md-input-wrapper">
             <input
+              id="param-symbol"
+              name="symbol"
               type="text"
               className="md-input"
               value={params.symbol}
@@ -42,10 +44,12 @@ export const ParameterInputs: React.FC<ParameterInputsProps> = ({
 
         {/* Spot Price */}
         <div className="md-field-group">
-          <label className="md-field-label">Current Price</label>
+          <label htmlFor="param-spot-price" className="md-field-label">Current Price</label>
           <div className="md-input-wrapper">
             <span className="md-input-prefix">$</span>
             <input
+              id="param-spot-price"
+              name="spotPrice"
               type="number"
               step="1"
               className="md-input"
@@ -57,9 +61,11 @@ export const ParameterInputs: React.FC<ParameterInputsProps> = ({
 
         {/* ATM IV */}
         <div className="md-field-group">
-          <label className="md-field-label">ATM Implied Vol</label>
+          <label htmlFor="param-atm-iv" className="md-field-label">ATM Implied Vol</label>
           <div className="md-input-wrapper">
             <input
+              id="param-atm-iv"
+              name="atmIV"
               type="number"
               step="0.001"
               className="md-input"
@@ -72,9 +78,11 @@ export const ParameterInputs: React.FC<ParameterInputsProps> = ({
 
         {/* Days to Expiry */}
         <div className="md-field-group">
-          <label className="md-field-label">Days 'til Expiry</label>
+          <label htmlFor="param-dte" className="md-field-label">Days 'til Expiry</label>
           <div className="md-input-wrapper">
             <input
+              id="param-dte"
+              name="dte"
               type="number"
               step="1"
               min="1"
@@ -88,9 +96,11 @@ export const ParameterInputs: React.FC<ParameterInputsProps> = ({
 
         {/* Contracts */}
         <div className="md-field-group">
-          <label className="md-field-label">Contracts</label>
+          <label htmlFor="param-contracts" className="md-field-label">Contracts</label>
           <div className="md-input-wrapper">
             <input
+              id="param-contracts"
+              name="contracts"
               type="number"
               step="1"
               min="1"
@@ -103,10 +113,12 @@ export const ParameterInputs: React.FC<ParameterInputsProps> = ({
 
         {/* Strike Gap */}
         <div className="md-field-group">
-          <label className="md-field-label">Strike Gaps</label>
+          <label htmlFor="param-strike-gap" className="md-field-label">Strike Gaps</label>
           <div className="md-input-wrapper">
             <span className="md-input-prefix">$</span>
             <input
+              id="param-strike-gap"
+              name="strikeGap"
               type="number"
               step="1"
               min="0.5"
@@ -119,10 +131,12 @@ export const ParameterInputs: React.FC<ParameterInputsProps> = ({
 
         {/* ATM Straddle Ask (Row 15) */}
         <div className="md-field-group">
-          <label className="md-field-label">ATM Straddle Ask</label>
+          <label htmlFor="param-straddle-ask" className="md-field-label">ATM Straddle Ask</label>
           <div className="md-input-wrapper">
             <span className="md-input-prefix">$</span>
             <input
+              id="param-straddle-ask"
+              name="atmStraddleAsk"
               type="number"
               step="0.05"
               min="0"
@@ -135,9 +149,11 @@ export const ParameterInputs: React.FC<ParameterInputsProps> = ({
 
         {/* Straddle Factor */}
         <div className="md-field-group">
-          <label className="md-field-label">Straddle Factor</label>
+          <label htmlFor="param-straddle-factor" className="md-field-label">Straddle Factor</label>
           <div className="md-input-wrapper">
             <input
+              id="param-straddle-factor"
+              name="straddleFactor"
               type="number"
               step="0.05"
               min="0.1"
@@ -152,9 +168,11 @@ export const ParameterInputs: React.FC<ParameterInputsProps> = ({
 
         {/* Risk-Free Rate */}
         <div className="md-field-group">
-          <label className="md-field-label">Risk-Free Rate (r)</label>
+          <label htmlFor="param-risk-free-rate" className="md-field-label">Risk-Free Rate (r)</label>
           <div className="md-input-wrapper">
             <input
+              id="param-risk-free-rate"
+              name="riskFreeRate"
               type="number"
               step="0.25"
               className="md-input"
@@ -167,9 +185,11 @@ export const ParameterInputs: React.FC<ParameterInputsProps> = ({
 
         {/* Dividend Yield */}
         <div className="md-field-group">
-          <label className="md-field-label">Dividend Yield (q)</label>
+          <label htmlFor="param-dividend-yield" className="md-field-label">Dividend Yield (q)</label>
           <div className="md-input-wrapper">
             <input
+              id="param-dividend-yield"
+              name="dividendYield"
               type="number"
               step="0.1"
               className="md-input"

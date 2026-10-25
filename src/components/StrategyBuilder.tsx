@@ -88,16 +88,17 @@ export const StrategyBuilder: React.FC<StrategyBuilderProps> = ({
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: mode === 'iron-condor' ? '1fr 1fr' : '1fr', gap: 16 }}>
+      <div className="grid-wings">
         {/* Call Spread Wing */}
         {(mode === 'iron-condor' || mode === 'call-spread') && (
-          <div className="md-card md-card--tonal" style={{ borderLeft: '4px solid var(--quant-color-loss)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div className="md-card md-card--tonal" style={{ borderLeft: '2px solid rgba(255, 86, 48, 0.35)', padding: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <TrendingDown size={18} color="var(--quant-color-loss)" />
                 <span className="title-medium">Bear Call Spread (Short Wing)</span>
               </div>
               <button
+                type="button"
                 className="md-button md-button--text"
                 onClick={handleSolveCallFairCredit}
                 title="Auto-fill Credit with 1:1 EV Fair Price"
@@ -108,12 +109,14 @@ export const StrategyBuilder: React.FC<StrategyBuilderProps> = ({
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+            <div className="grid-wing-inputs">
               <div className="md-field-group">
-                <label className="md-field-label">Short Call</label>
+                <label htmlFor="strat-short-call" className="md-field-label">Short Call</label>
                 <div className="md-input-wrapper">
                   <span className="md-input-prefix">$</span>
                   <input
+                    id="strat-short-call"
+                    name="shortCall"
                     type="number"
                     step={gap}
                     className="md-input"
@@ -127,10 +130,12 @@ export const StrategyBuilder: React.FC<StrategyBuilderProps> = ({
               </div>
 
               <div className="md-field-group">
-                <label className="md-field-label">Long Call (Hedge)</label>
+                <label htmlFor="strat-long-call" className="md-field-label">Long Call (Hedge)</label>
                 <div className="md-input-wrapper">
                   <span className="md-input-prefix">$</span>
                   <input
+                    id="strat-long-call"
+                    name="longCall"
                     type="number"
                     step={gap}
                     className="md-input"
@@ -141,10 +146,12 @@ export const StrategyBuilder: React.FC<StrategyBuilderProps> = ({
               </div>
 
               <div className="md-field-group">
-                <label className="md-field-label">Net Credit</label>
+                <label htmlFor="strat-call-credit" className="md-field-label">Net Credit</label>
                 <div className="md-input-wrapper">
                   <span className="md-input-prefix">$</span>
                   <input
+                    id="strat-call-credit"
+                    name="callCredit"
                     type="number"
                     step="0.01"
                     className="md-input"
@@ -155,7 +162,7 @@ export const StrategyBuilder: React.FC<StrategyBuilderProps> = ({
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 12 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: 12, fontSize: 12 }}>
               <div>
                 <span style={{ color: 'var(--md-sys-color-outline)' }}>P(ITM): </span>
                 <span className="mono-small">{(condorEval.callSpread.probITM * 100).toFixed(1)}%</span>
@@ -179,13 +186,14 @@ export const StrategyBuilder: React.FC<StrategyBuilderProps> = ({
 
         {/* Put Spread Wing */}
         {(mode === 'iron-condor' || mode === 'put-spread') && (
-          <div className="md-card md-card--tonal" style={{ borderLeft: '4px solid var(--quant-color-gain)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div className="md-card md-card--tonal" style={{ borderLeft: '2px solid rgba(54, 179, 126, 0.35)', padding: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <TrendingUp size={18} color="var(--quant-color-gain)" />
                 <span className="title-medium">Bull Put Spread (Short Wing)</span>
               </div>
               <button
+                type="button"
                 className="md-button md-button--text"
                 onClick={handleSolvePutFairCredit}
                 title="Auto-fill Credit with 1:1 EV Fair Price"
@@ -196,12 +204,14 @@ export const StrategyBuilder: React.FC<StrategyBuilderProps> = ({
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+            <div className="grid-wing-inputs">
               <div className="md-field-group">
-                <label className="md-field-label">Short Put</label>
+                <label htmlFor="strat-short-put" className="md-field-label">Short Put</label>
                 <div className="md-input-wrapper">
                   <span className="md-input-prefix">$</span>
                   <input
+                    id="strat-short-put"
+                    name="shortPut"
                     type="number"
                     step={gap}
                     className="md-input"
@@ -215,10 +225,12 @@ export const StrategyBuilder: React.FC<StrategyBuilderProps> = ({
               </div>
 
               <div className="md-field-group">
-                <label className="md-field-label">Long Put (Hedge)</label>
+                <label htmlFor="strat-long-put" className="md-field-label">Long Put (Hedge)</label>
                 <div className="md-input-wrapper">
                   <span className="md-input-prefix">$</span>
                   <input
+                    id="strat-long-put"
+                    name="longPut"
                     type="number"
                     step={gap}
                     className="md-input"
@@ -229,10 +241,12 @@ export const StrategyBuilder: React.FC<StrategyBuilderProps> = ({
               </div>
 
               <div className="md-field-group">
-                <label className="md-field-label">Net Credit</label>
+                <label htmlFor="strat-put-credit" className="md-field-label">Net Credit</label>
                 <div className="md-input-wrapper">
                   <span className="md-input-prefix">$</span>
                   <input
+                    id="strat-put-credit"
+                    name="putCredit"
                     type="number"
                     step="0.01"
                     className="md-input"
@@ -243,7 +257,7 @@ export const StrategyBuilder: React.FC<StrategyBuilderProps> = ({
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 12 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: 12, fontSize: 12 }}>
               <div>
                 <span style={{ color: 'var(--md-sys-color-outline)' }}>P(ITM): </span>
                 <span className="mono-small">{(condorEval.putSpread.probITM * 100).toFixed(1)}%</span>

@@ -155,8 +155,10 @@ export const LogCalculatorTradeModal: React.FC<LogCalculatorTradeModalProps> = (
 
         {/* Thesis & Setup */}
         <div className="md-field-group">
-          <label className="md-field-label">Trade Thesis & Catalyst Rationale</label>
+          <label htmlFor="log-calc-thesis" className="md-field-label">Trade Thesis & Catalyst Rationale</label>
           <textarea
+            id="log-calc-thesis"
+            name="thesis"
             className="md-input-wrapper"
             style={{ height: 80, padding: 10, width: '100%', resize: 'none', fontFamily: 'inherit' }}
             placeholder="Why are you taking this trade? (e.g. Expected move boundary, IV expansion, key support test...)"
@@ -168,11 +170,13 @@ export const LogCalculatorTradeModal: React.FC<LogCalculatorTradeModalProps> = (
         {/* Confidence & Grade */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div className="md-field-group">
-            <label className="md-field-label">
+            <label htmlFor="log-calc-confidence" className="md-field-label">
               <span>Confidence Level</span>
               <span className="mono-small">{confidence} / 10</span>
             </label>
             <input
+              id="log-calc-confidence"
+              name="confidence"
               type="range"
               min="1"
               max="10"
@@ -183,8 +187,10 @@ export const LogCalculatorTradeModal: React.FC<LogCalculatorTradeModalProps> = (
           </div>
 
           <div className="md-field-group">
-            <label className="md-field-label">Execution Grade</label>
+            <label htmlFor="log-calc-grade" className="md-field-label">Execution Grade</label>
             <select
+              id="log-calc-grade"
+              name="executionGrade"
               className="md-input-wrapper"
               value={executionGrade}
               onChange={(e) => setExecutionGrade(e.target.value as any)}

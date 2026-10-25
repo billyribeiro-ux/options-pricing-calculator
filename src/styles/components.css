@@ -9,6 +9,8 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
   transition: box-shadow var(--md-sys-motion-duration-short) var(--md-sys-motion-easing-standard);
 }
 
@@ -38,6 +40,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
   margin-bottom: 16px;
 }
 
@@ -164,7 +168,8 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-bottom: 16px;
+  min-width: 0;
+  margin-bottom: 0;
 }
 
 .md-field-label {
@@ -174,16 +179,22 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .md-input-wrapper {
   display: flex;
   align-items: center;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   background-color: var(--md-sys-color-surface-container);
   border: 1px solid var(--md-sys-color-outline-variant);
   border-radius: var(--md-sys-shape-corner-small);
-  padding: 0 12px;
-  height: 44px;
+  padding: 0 10px;
+  height: 42px;
   transition: border-color var(--md-sys-motion-duration-short) var(--md-sys-motion-easing-standard);
 }
 
@@ -196,25 +207,29 @@
 .md-input-prefix {
   font-family: var(--md-ref-typeface-mono);
   color: var(--md-sys-color-on-surface-variant);
-  margin-right: 6px;
-  font-size: 14px;
+  margin-right: 4px;
+  font-size: 13px;
   font-weight: 500;
+  flex-shrink: 0;
 }
 
 .md-input-suffix {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--md-sys-color-on-surface-variant);
-  margin-left: 6px;
+  margin-left: 4px;
   font-weight: 500;
+  flex-shrink: 0;
 }
 
 .md-input {
-  flex: 1;
+  flex: 1 1 0%;
+  width: 100%;
+  min-width: 0;
   background: transparent;
   border: none;
   outline: none;
   font-family: var(--md-ref-typeface-mono);
-  font-size: 15px;
+  font-size: 14px;
   color: var(--md-sys-color-on-surface);
   font-weight: 600;
 }
@@ -222,15 +237,17 @@
 /* ==================== SEGMENTED BUTTONS ==================== */
 .md-segmented-button {
   display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
   background-color: var(--md-sys-color-surface-container);
   border: 1px solid var(--md-sys-color-outline-variant);
-  border-radius: var(--md-sys-shape-corner-full);
+  border-radius: 18px;
   padding: 3px;
   gap: 2px;
 }
 
 .md-segmented-button__segment {
-  padding: 6px 14px;
+  padding: 6px 12px;
   border-radius: var(--md-sys-shape-corner-full);
   font-size: 12px;
   font-weight: 600;
@@ -238,6 +255,7 @@
   background: transparent;
   color: var(--md-sys-color-on-surface-variant);
   cursor: pointer;
+  white-space: nowrap;
   transition: all var(--md-sys-motion-duration-short) var(--md-sys-motion-easing-standard);
   display: flex;
   align-items: center;
@@ -245,8 +263,8 @@
 }
 
 .md-segmented-button__segment--active {
-  background-color: var(--md-sys-color-secondary-container);
-  color: var(--md-sys-color-on-secondary-container);
+  background-color: color-mix(in srgb, var(--md-sys-color-primary) 16%, var(--md-sys-color-surface-container-highest));
+  color: var(--md-sys-color-primary);
   box-shadow: var(--md-sys-elevation-level1);
 }
 

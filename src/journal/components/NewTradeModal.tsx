@@ -123,11 +123,13 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
           </button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
           <div className="md-field-group">
-            <label className="md-field-label">Symbol</label>
+            <label htmlFor="new-trade-symbol" className="md-field-label">Symbol</label>
             <div className="md-input-wrapper">
               <input
+                id="new-trade-symbol"
+                name="symbol"
                 type="text"
                 className="md-input"
                 value={symbol}
@@ -137,8 +139,10 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
           </div>
 
           <div className="md-field-group">
-            <label className="md-field-label">Strategy</label>
+            <label htmlFor="new-trade-strategy" className="md-field-label">Strategy</label>
             <select
+              id="new-trade-strategy"
+              name="strategyType"
               className="md-input-wrapper"
               value={strategyType}
               onChange={(e) => setStrategyType(e.target.value as any)}
@@ -156,8 +160,10 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
           </div>
 
           <div className="md-field-group">
-            <label className="md-field-label">Status</label>
+            <label htmlFor="new-trade-status" className="md-field-label">Status</label>
             <select
+              id="new-trade-status"
+              name="status"
               className="md-input-wrapper"
               value={status}
               onChange={(e) => setStatus(e.target.value as any)}
@@ -168,11 +174,13 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
           <div className="md-field-group">
-            <label className="md-field-label">Entry Date</label>
+            <label htmlFor="new-trade-entry-date" className="md-field-label">Entry Date</label>
             <div className="md-input-wrapper">
               <input
+                id="new-trade-entry-date"
+                name="entryDate"
                 type="date"
                 className="md-input"
                 value={entryDate}
@@ -182,10 +190,12 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
           </div>
 
           <div className="md-field-group">
-            <label className="md-field-label">Net Credit/Debit ($/sh)</label>
+            <label htmlFor="new-trade-net-price" className="md-field-label">Net Credit/Debit ($/sh)</label>
             <div className="md-input-wrapper">
               <span className="md-input-prefix">$</span>
               <input
+                id="new-trade-net-price"
+                name="netPrice"
                 type="number"
                 step="0.01"
                 className="md-input"
@@ -196,9 +206,11 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
           </div>
 
           <div className="md-field-group">
-            <label className="md-field-label">Contracts / Shares</label>
+            <label htmlFor="new-trade-contracts" className="md-field-label">Contracts / Shares</label>
             <div className="md-input-wrapper">
               <input
+                id="new-trade-contracts"
+                name="contracts"
                 type="number"
                 min="1"
                 className="md-input"
@@ -212,9 +224,11 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
         {status === 'closed' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div className="md-field-group">
-              <label className="md-field-label">Exit Date</label>
+              <label htmlFor="new-trade-exit-date" className="md-field-label">Exit Date</label>
               <div className="md-input-wrapper">
                 <input
+                  id="new-trade-exit-date"
+                  name="exitDate"
                   type="date"
                   className="md-input"
                   value={exitDate}
@@ -224,10 +238,12 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
             </div>
 
             <div className="md-field-group">
-              <label className="md-field-label">Realized Net P&L ($)</label>
+              <label htmlFor="new-trade-pnl" className="md-field-label">Realized Net P&L ($)</label>
               <div className="md-input-wrapper">
                 <span className="md-input-prefix">$</span>
                 <input
+                  id="new-trade-pnl"
+                  name="realizedPnL"
                   type="number"
                   step="1"
                   className="md-input"
@@ -239,12 +255,14 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
           <div className="md-field-group">
-            <label className="md-field-label">Max Risk ($)</label>
+            <label htmlFor="new-trade-max-risk" className="md-field-label">Max Risk ($)</label>
             <div className="md-input-wrapper">
               <span className="md-input-prefix">$</span>
               <input
+                id="new-trade-max-risk"
+                name="maxRisk"
                 type="number"
                 className="md-input"
                 value={maxRisk}
@@ -254,9 +272,11 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
           </div>
 
           <div className="md-field-group">
-            <label className="md-field-label">Confidence ({confidence}/10)</label>
+            <label htmlFor="new-trade-confidence" className="md-field-label">Confidence ({confidence}/10)</label>
             <div className="md-input-wrapper">
               <input
+                id="new-trade-confidence"
+                name="confidence"
                 type="number"
                 min="1"
                 max="10"
@@ -268,8 +288,10 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
           </div>
 
           <div className="md-field-group">
-            <label className="md-field-label">Execution Grade</label>
+            <label htmlFor="new-trade-grade" className="md-field-label">Execution Grade</label>
             <select
+              id="new-trade-grade"
+              name="executionGrade"
               className="md-input-wrapper"
               value={executionGrade}
               onChange={(e) => setExecutionGrade(e.target.value as any)}
@@ -288,6 +310,7 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
           <input
             type="checkbox"
             id="new-trade-rules"
+            name="rulesFollowed"
             checked={rulesFollowed}
             onChange={(e) => setRulesFollowed(e.target.checked)}
             style={{ width: 16, height: 16, accentColor: 'var(--md-sys-color-primary)' }}
@@ -315,6 +338,9 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
             {legs.map((leg, idx) => (
               <div key={leg.id} style={{ display: 'grid', gridTemplateColumns: '85px 85px 1fr 1fr 28px', gap: 6, alignItems: 'center' }}>
                 <select
+                  id={`new-trade-leg-pos-${idx}`}
+                  name={`legPosition_${idx}`}
+                  aria-label={`Leg ${idx + 1} Position`}
                   className="md-input-wrapper"
                   style={{ height: 30, fontSize: 12 }}
                   value={leg.position}
@@ -324,6 +350,9 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
                   <option value="buy">BUY</option>
                 </select>
                 <select
+                  id={`new-trade-leg-type-${idx}`}
+                  name={`legType_${idx}`}
+                  aria-label={`Leg ${idx + 1} Type`}
                   className="md-input-wrapper"
                   style={{ height: 30, fontSize: 12 }}
                   value={leg.type}
@@ -335,6 +364,9 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
                 <div className="md-input-wrapper" style={{ height: 30 }}>
                   <span className="md-input-prefix">$</span>
                   <input
+                    id={`new-trade-leg-strike-${idx}`}
+                    name={`legStrike_${idx}`}
+                    aria-label={`Leg ${idx + 1} Strike Price`}
                     type="number"
                     className="md-input"
                     style={{ fontSize: 12 }}
@@ -346,6 +378,9 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
                 <div className="md-input-wrapper" style={{ height: 30 }}>
                   <span className="md-input-prefix">@</span>
                   <input
+                    id={`new-trade-leg-price-${idx}`}
+                    name={`legPrice_${idx}`}
+                    aria-label={`Leg ${idx + 1} Entry Price`}
                     type="number"
                     step="0.05"
                     className="md-input"
@@ -395,8 +430,10 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
         </div>
 
         <div className="md-field-group">
-          <label className="md-field-label">Trade Thesis & Notes</label>
+          <label htmlFor="new-trade-thesis" className="md-field-label">Trade Thesis & Notes</label>
           <textarea
+            id="new-trade-thesis"
+            name="thesis"
             className="md-input-wrapper"
             style={{ height: 60, padding: 8, width: '100%', resize: 'none', fontFamily: 'inherit' }}
             placeholder="Trade rationale, support/resistance levels, news catalysts..."

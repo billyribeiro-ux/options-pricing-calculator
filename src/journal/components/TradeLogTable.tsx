@@ -54,8 +54,11 @@ export const TradeLogTable: React.FC<TradeLogTableProps> = ({
         {/* Filters */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <div className="md-input-wrapper" style={{ height: 36, width: 180, padding: '0 8px' }}>
+            <label htmlFor="trade-log-search" style={{ display: 'none' }}>Search Trades</label>
             <Search size={14} color="var(--md-sys-color-outline)" style={{ marginRight: 6 }} />
             <input
+              id="trade-log-search"
+              name="tradeLogSearch"
               type="text"
               className="md-input"
               placeholder="Search ticker, tag..."
@@ -65,7 +68,10 @@ export const TradeLogTable: React.FC<TradeLogTableProps> = ({
             />
           </div>
 
+          <label htmlFor="trade-strategy-filter" style={{ display: 'none' }}>Strategy Filter</label>
           <select
+            id="trade-strategy-filter"
+            name="strategyFilter"
             className="md-input-wrapper"
             style={{ height: 36, fontSize: 12, padding: '0 8px', borderRadius: 8 }}
             value={strategyFilter}
@@ -79,7 +85,10 @@ export const TradeLogTable: React.FC<TradeLogTableProps> = ({
             <option value="straddle">Straddle</option>
           </select>
 
+          <label htmlFor="trade-status-filter" style={{ display: 'none' }}>Status Filter</label>
           <select
+            id="trade-status-filter"
+            name="statusFilter"
             className="md-input-wrapper"
             style={{ height: 36, fontSize: 12, padding: '0 8px', borderRadius: 8 }}
             value={statusFilter}

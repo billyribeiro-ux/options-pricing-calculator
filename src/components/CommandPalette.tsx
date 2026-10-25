@@ -65,8 +65,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 8px' }}>
+          <label htmlFor="command-palette-search" style={{ display: 'none' }}>Search commands and navigation</label>
           <Search size={18} color="var(--md-sys-color-outline)" />
           <input
+            id="command-palette-search"
+            name="commandSearch"
             type="text"
             className="md-input"
             placeholder="Type a command (Journal, Matrix, Log, AAPL, SPY)..."

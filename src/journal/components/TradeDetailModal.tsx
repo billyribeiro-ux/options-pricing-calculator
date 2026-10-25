@@ -199,7 +199,7 @@ export const TradeDetailModal: React.FC<TradeDetailModalProps> = ({ trade, onClo
         )}
 
         {/* 3. Psychological & Discipline Audit */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
           <div className="md-card md-card--outlined" style={{ padding: 14 }}>
             <div className="title-small" style={{ marginBottom: 8 }}>Discipline & Execution Rating</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
@@ -298,9 +298,12 @@ export const TradeDetailModal: React.FC<TradeDetailModalProps> = ({ trade, onClo
               </div>
             )}
             {onUpdateTrade && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px auto', gap: 8, alignItems: 'center' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, alignItems: 'center' }}>
                 <div className="md-input-wrapper" style={{ height: 34 }}>
+                  <label htmlFor="detail-adj-note" style={{ display: 'none' }}>Adjustment Description</label>
                   <input
+                    id="detail-adj-note"
+                    name="adjNote"
                     type="text"
                     className="md-input"
                     placeholder="Log roll or adjustment (e.g., Rolled 705C to 710C)..."
@@ -309,8 +312,11 @@ export const TradeDetailModal: React.FC<TradeDetailModalProps> = ({ trade, onClo
                   />
                 </div>
                 <div className="md-input-wrapper" style={{ height: 34 }}>
+                  <label htmlFor="detail-adj-credit" style={{ display: 'none' }}>Adjustment Credit or Debit</label>
                   <span className="md-input-prefix">$</span>
                   <input
+                    id="detail-adj-credit"
+                    name="adjCredit"
                     type="number"
                     step="10"
                     className="md-input"
@@ -333,11 +339,13 @@ export const TradeDetailModal: React.FC<TradeDetailModalProps> = ({ trade, onClo
                 <CheckSquare size={16} />
                 Close Open Position & Realize P&L
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 10, alignItems: 'end' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, alignItems: 'end' }}>
                 <div className="md-field-group">
-                  <label className="md-field-label">Exit Date</label>
+                  <label htmlFor="detail-close-date" className="md-field-label">Exit Date</label>
                   <div className="md-input-wrapper" style={{ height: 36 }}>
                     <input
+                      id="detail-close-date"
+                      name="closeDate"
                       type="date"
                       className="md-input"
                       value={closeDate}
@@ -346,10 +354,12 @@ export const TradeDetailModal: React.FC<TradeDetailModalProps> = ({ trade, onClo
                   </div>
                 </div>
                 <div className="md-field-group">
-                  <label className="md-field-label">Realized Net P&L ($)</label>
+                  <label htmlFor="detail-close-pnl" className="md-field-label">Realized Net P&L ($)</label>
                   <div className="md-input-wrapper" style={{ height: 36 }}>
                     <span className="md-input-prefix">$</span>
                     <input
+                      id="detail-close-pnl"
+                      name="closingPnL"
                       type="number"
                       step="10"
                       className="md-input"
@@ -359,8 +369,10 @@ export const TradeDetailModal: React.FC<TradeDetailModalProps> = ({ trade, onClo
                   </div>
                 </div>
                 <div className="md-field-group">
-                  <label className="md-field-label">Execution Grade</label>
+                  <label htmlFor="detail-close-grade" className="md-field-label">Execution Grade</label>
                   <select
+                    id="detail-close-grade"
+                    name="closeGrade"
                     className="md-input-wrapper"
                     style={{ height: 36 }}
                     value={grade}
@@ -398,7 +410,10 @@ export const TradeDetailModal: React.FC<TradeDetailModalProps> = ({ trade, onClo
                 </button>
               )}
             </div>
+            <label htmlFor="detail-post-mortem" style={{ display: 'none' }}>Post-Mortem Lessons</label>
             <textarea
+              id="detail-post-mortem"
+              name="postMortemLessons"
               className="md-input-wrapper"
               style={{ width: '100%', height: 64, padding: 8, resize: 'vertical', fontFamily: 'inherit' }}
               placeholder="Document post-trade execution review, exit timing analysis, and key takeaways..."

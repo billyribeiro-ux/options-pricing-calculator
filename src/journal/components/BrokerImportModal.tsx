@@ -185,9 +185,11 @@ export const BrokerImportModal: React.FC<BrokerImportModalProps> = ({
           </div>
 
           <div style={{ marginTop: 14 }}>
-            <label className="md-button md-button--filled" style={{ cursor: 'pointer' }}>
+            <label htmlFor="broker-file-import" className="md-button md-button--filled" style={{ cursor: 'pointer' }}>
               <span>Select File (.csv, .json)</span>
               <input
+                id="broker-file-import"
+                name="brokerFile"
                 type="file"
                 accept=".csv,.json,.txt"
                 style={{ display: 'none' }}
