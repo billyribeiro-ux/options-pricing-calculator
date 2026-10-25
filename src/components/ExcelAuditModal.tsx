@@ -1,14 +1,21 @@
 import React, { useState } from 'react';
 import { parseOptionsExcelFile, ParsedSpreadsheetData } from '../utils/xlsxParser';
+import { exportCurrentTradeToExcel, downloadOriginalExcelFile } from '../utils/excelExporter';
 import { IronCondorEvaluation, UnderlyingParams } from '../quant/types';
 import { formatCurrency, formatPercent } from '../utils/formatters';
-import { FileSpreadsheet, UploadCloud, X } from 'lucide-react';
+import { FileSpreadsheet, UploadCloud, Download, ExternalLink, X } from 'lucide-react';
 
 interface ExcelAuditModalProps {
   isOpen: boolean;
   onClose: () => void;
   condorEval: IronCondorEvaluation;
   params: UnderlyingParams;
+  callShort: number;
+  callLong: number;
+  callCredit: number;
+  putShort: number;
+  putLong: number;
+  putCredit: number;
   onApplyParsedData: (data: ParsedSpreadsheetData) => void;
 }
 
@@ -16,7 +23,13 @@ export const ExcelAuditModal: React.FC<ExcelAuditModalProps> = ({
   isOpen,
   onClose,
   condorEval,
-  params: _params,
+  params,
+  callShort,
+  callLong,
+  callCredit,
+  putShort,
+  putLong,
+  putCredit,
   onApplyParsedData
 }) => {
   const [dragOver, setDragOver] = useState<boolean>(false);
@@ -44,7 +57,6 @@ export const ExcelAuditModal: React.FC<ExcelAuditModalProps> = ({
   };
 
   const handleLoadProjectSample = () => {
-    // Default values matching Option Pricing.xlsx
     const sample: ParsedSpreadsheetData = {
       params: {
         symbol: 'AAPL',
@@ -71,17 +83,62 @@ export const ExcelAuditModal: React.FC<ExcelAuditModalProps> = ({
     setLoadStatus('Loaded baseline values from Option Pricing.xlsx');
   };
 
+  const handleExportToExcel = () => {
+    exportCurrentTradeToExcel(
+      params,
+      callShort,
+      callLong,
+      callCredit,
+      putShort,
+      putLong,
+      putCredit,
+      condorEval
+    );
+    setLoadStatus(`Exported ${params.symbol}_Option_Pricing_Calculated.xlsx ready to open in Microsoft Excel!`);
+  };
+
   return (
     <div className="md-dialog-backdrop" onClick={onClose}>
       <div className="md-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="md-dialog__header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <FileSpreadsheet size={24} color="var(--md-sys-color-primary)" />
-            <h2 className="md-dialog__title">Spreadsheet Audit & Comparison Bridge</h2>
+            <div>
+              <h2 className="md-dialog__title">Spreadsheet Bridge & Microsoft Excel Export</h2>
+              <span className="body-small" style={{ color: 'var(--md-sys-color-outline)' }}>
+                Import, audit, or export directly to Microsoft Excel (.xlsx) with all formulas intact
+              </span>
+            </div>
           </div>
           <button className="md-icon-button" onClick={onClose}>
             <X size={20} />
           </button>
+        </div>
+
+        {/* Action Bar: Export & Download */}
+        <div className="md-card md-card--tonal" style={{ padding: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+            <div>
+              <div className="title-small" style={{ color: 'var(--md-sys-color-primary)' }}>
+                Open / Export in Microsoft Excel
+              </div>
+              <div className="body-small" style={{ color: 'var(--md-sys-color-outline)' }}>
+                Generates a live .xlsx file with NORMSDIST, SUM, IF formulas matching Option Pricing.xlsx
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button className="md-button md-button--filled" onClick={handleExportToExcel}>
+                <ExternalLink size={14} />
+                <span>Export Current Trade to Excel (.xlsx)</span>
+              </button>
+
+              <button className="md-button md-button--outlined" onClick={downloadOriginalExcelFile}>
+                <Download size={14} />
+                <span>Download Original Option Pricing.xlsx</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Drag and Drop Zone */}
@@ -92,21 +149,21 @@ export const ExcelAuditModal: React.FC<ExcelAuditModalProps> = ({
           style={{
             border: `2px dashed ${dragOver ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-outline-variant)'}`,
             borderRadius: 16,
-            padding: 24,
+            padding: 20,
             textAlign: 'center',
             backgroundColor: dragOver ? 'var(--md-sys-color-primary-container)' : 'var(--md-sys-color-surface-container)',
             transition: 'all 150ms ease'
           }}
         >
-          <UploadCloud size={36} color="var(--md-sys-color-primary)" style={{ margin: '0 auto 8px' }} />
-          <div className="title-medium">Drag & Drop Any Options Spreadsheet (.xlsx)</div>
-          <div className="body-small" style={{ color: 'var(--md-sys-color-outline)', marginTop: 4 }}>
-            Instantly maps cells: Spot (E9), IV (E10), DTE (E11), Contracts (E12), Gaps (E13), Strikes (H12/I12)
+          <UploadCloud size={32} color="var(--md-sys-color-primary)" style={{ margin: '0 auto 6px' }} />
+          <div className="title-medium">Import Any Options Spreadsheet (.xlsx)</div>
+          <div className="body-small" style={{ color: 'var(--md-sys-color-outline)', marginTop: 2 }}>
+            Drag & drop your file or click Browse. Instantly parses E9 (Spot), E10 (IV), E11 (DTE), E12 (Contracts), H12/I12 (Strikes).
           </div>
 
-          <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center', gap: 12 }}>
-            <label className="md-button md-button--filled" style={{ cursor: 'pointer' }}>
-              <span>Browse File</span>
+          <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center', gap: 10 }}>
+            <label className="md-button md-button--tonal" style={{ cursor: 'pointer', height: 32, fontSize: 12 }}>
+              <span>Browse Spreadsheet</span>
               <input
                 type="file"
                 accept=".xlsx,.xls"
@@ -115,13 +172,13 @@ export const ExcelAuditModal: React.FC<ExcelAuditModalProps> = ({
               />
             </label>
 
-            <button className="md-button md-button--tonal" onClick={handleLoadProjectSample}>
-              Load Option Pricing.xlsx Defaults
+            <button className="md-button md-button--outlined" style={{ height: 32, fontSize: 12 }} onClick={handleLoadProjectSample}>
+              Reset to Option Pricing.xlsx Sample
             </button>
           </div>
 
           {loadStatus && (
-            <div className="label-small" style={{ marginTop: 10, color: 'var(--md-sys-color-primary)' }}>
+            <div className="label-small" style={{ marginTop: 8, color: 'var(--md-sys-color-primary)' }}>
               {loadStatus}
             </div>
           )}
@@ -129,7 +186,7 @@ export const ExcelAuditModal: React.FC<ExcelAuditModalProps> = ({
 
         {/* Side-by-side Audit Table */}
         <div>
-          <div className="title-medium" style={{ marginBottom: 10 }}>Model Audit: Spreadsheet vs. Exact Quantitative Reality</div>
+          <div className="title-medium" style={{ marginBottom: 8 }}>Model Audit: Spreadsheet vs. Exact Quantitative Reality</div>
           <div className="md-table-container">
             <table className="md-table">
               <thead>

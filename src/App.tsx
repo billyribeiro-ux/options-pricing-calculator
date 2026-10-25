@@ -236,12 +236,18 @@ export const App: React.FC = () => {
         onSaveTrade={handleSaveLoggedTrade}
       />
 
-      {/* 4. Excel Audit Bridge Modal */}
+      {/* 4. Excel Audit Bridge Modal & Export */}
       <ExcelAuditModal
         isOpen={isAuditOpen}
         onClose={() => setIsAuditOpen(false)}
         condorEval={condorEval}
         params={params}
+        callShort={callShort}
+        callLong={callLong}
+        callCredit={callCredit}
+        putShort={putShort}
+        putLong={putLong}
+        putCredit={putCredit}
         onApplyParsedData={handleApplyParsedData}
       />
 
