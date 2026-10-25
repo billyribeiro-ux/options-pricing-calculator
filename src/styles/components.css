@@ -1,0 +1,385 @@
+/**
+ * Google Material Design 3 Components (Pure CSS - No Tailwind)
+ */
+
+/* ==================== MD3 CARDS ==================== */
+.md-card {
+  border-radius: var(--md-sys-shape-corner-large);
+  padding: 20px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow var(--md-sys-motion-duration-short) var(--md-sys-motion-easing-standard);
+}
+
+.md-card--elevated {
+  background-color: var(--md-sys-color-surface-container-low);
+  box-shadow: var(--md-sys-elevation-level1);
+}
+
+.md-card--elevated:hover {
+  box-shadow: var(--md-sys-elevation-level2);
+}
+
+.md-card--filled {
+  background-color: var(--md-sys-color-surface-container);
+}
+
+.md-card--tonal {
+  background-color: var(--md-sys-color-surface-container-high);
+}
+
+.md-card--outlined {
+  background-color: var(--md-sys-color-surface);
+  border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.md-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.md-card__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.md-card__subtitle {
+  font-size: 12px;
+  color: var(--md-sys-color-on-surface-variant);
+  margin-top: 4px;
+}
+
+/* ==================== MD3 BUTTONS ==================== */
+.md-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 20px;
+  border-radius: var(--md-sys-shape-corner-full);
+  font-family: var(--md-ref-typeface-plain);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  cursor: pointer;
+  border: none;
+  user-select: none;
+  outline: none;
+  transition: all var(--md-sys-motion-duration-short) var(--md-sys-motion-easing-standard);
+  position: relative;
+  overflow: hidden;
+}
+
+.md-button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+/* Filled Button */
+.md-button--filled {
+  background-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  box-shadow: var(--md-sys-elevation-level0);
+}
+
+.md-button--filled:hover:not(:disabled) {
+  box-shadow: var(--md-sys-elevation-level1);
+  filter: brightness(1.08);
+}
+
+.md-button--filled:active:not(:disabled) {
+  box-shadow: var(--md-sys-elevation-level0);
+  filter: brightness(0.95);
+}
+
+/* Tonal Button */
+.md-button--tonal {
+  background-color: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+.md-button--tonal:hover:not(:disabled) {
+  box-shadow: var(--md-sys-elevation-level1);
+  filter: brightness(1.04);
+}
+
+/* Outlined Button */
+.md-button--outlined {
+  background-color: transparent;
+  color: var(--md-sys-color-primary);
+  border: 1px solid var(--md-sys-color-outline);
+}
+
+.md-button--outlined:hover:not(:disabled) {
+  background-color: rgba(var(--md-sys-color-primary), 0.08);
+}
+
+/* Text Button */
+.md-button--text {
+  background-color: transparent;
+  color: var(--md-sys-color-primary);
+  padding: 0 12px;
+}
+
+.md-button--text:hover:not(:disabled) {
+  background-color: var(--md-sys-color-surface-container-highest);
+}
+
+/* Icon Button */
+.md-icon-button {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--md-sys-shape-corner-full);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--md-sys-color-on-surface-variant);
+  cursor: pointer;
+  outline: none;
+  transition: all var(--md-sys-motion-duration-short) var(--md-sys-motion-easing-standard);
+}
+
+.md-icon-button:hover {
+  background-color: var(--md-sys-color-surface-container-highest);
+  color: var(--md-sys-color-on-surface);
+}
+
+.md-icon-button:active {
+  background-color: var(--md-sys-color-surface-container-high);
+}
+
+/* ==================== MD3 INPUT FIELDS ==================== */
+.md-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.md-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface-variant);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.md-input-wrapper {
+  display: flex;
+  align-items: center;
+  background-color: var(--md-sys-color-surface-container);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-small);
+  padding: 0 12px;
+  height: 44px;
+  transition: border-color var(--md-sys-motion-duration-short) var(--md-sys-motion-easing-standard);
+}
+
+.md-input-wrapper:focus-within {
+  border-color: var(--md-sys-color-primary);
+  border-width: 2px;
+  background-color: var(--md-sys-color-surface-container-lowest);
+}
+
+.md-input-prefix {
+  font-family: var(--md-ref-typeface-mono);
+  color: var(--md-sys-color-on-surface-variant);
+  margin-right: 6px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.md-input-suffix {
+  font-size: 12px;
+  color: var(--md-sys-color-on-surface-variant);
+  margin-left: 6px;
+  font-weight: 500;
+}
+
+.md-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--md-ref-typeface-mono);
+  font-size: 15px;
+  color: var(--md-sys-color-on-surface);
+  font-weight: 600;
+}
+
+/* ==================== SEGMENTED BUTTONS ==================== */
+.md-segmented-button {
+  display: inline-flex;
+  background-color: var(--md-sys-color-surface-container);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-full);
+  padding: 3px;
+  gap: 2px;
+}
+
+.md-segmented-button__segment {
+  padding: 6px 14px;
+  border-radius: var(--md-sys-shape-corner-full);
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  cursor: pointer;
+  transition: all var(--md-sys-motion-duration-short) var(--md-sys-motion-easing-standard);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.md-segmented-button__segment--active {
+  background-color: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  box-shadow: var(--md-sys-elevation-level1);
+}
+
+/* ==================== CHIPS & BADGES ==================== */
+.md-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--md-sys-shape-corner-small);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+}
+
+.md-chip--gain {
+  background-color: var(--quant-color-gain-container);
+  color: var(--quant-color-on-gain-container);
+}
+
+.md-chip--loss {
+  background-color: var(--quant-color-loss-container);
+  color: var(--quant-color-on-loss-container);
+}
+
+.md-chip--neutral {
+  background-color: var(--quant-color-neutral-container);
+  color: var(--quant-color-neutral);
+}
+
+/* ==================== FINANCIAL DATA TABLE ==================== */
+.md-table-container {
+  overflow-x: auto;
+  border-radius: var(--md-sys-shape-corner-medium);
+  border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.md-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: right;
+  font-size: 13px;
+  font-family: var(--md-ref-typeface-mono);
+}
+
+.md-table th {
+  background-color: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface-variant);
+  padding: 12px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  white-space: nowrap;
+}
+
+.md-table th:first-child,
+.md-table td:first-child {
+  text-align: left;
+}
+
+.md-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--md-sys-color-surface-variant);
+  color: var(--md-sys-color-on-surface);
+  white-space: nowrap;
+}
+
+.md-table tr:hover {
+  background-color: var(--md-sys-color-surface-container-lowest);
+}
+
+.md-table tr.md-table__row--selected {
+  background-color: rgba(var(--md-sys-color-primary), 0.12);
+  font-weight: 700;
+}
+
+.md-table tr.md-table__row--selected td:first-child {
+  border-left: 4px solid var(--md-sys-color-primary);
+}
+
+/* ==================== DIALOG / MODAL ==================== */
+.md-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+  animation: fadeIn 150ms var(--md-sys-motion-easing-decelerated);
+}
+
+.md-dialog {
+  background-color: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+  border-radius: var(--md-sys-shape-corner-xl);
+  box-shadow: var(--md-sys-elevation-level3);
+  max-width: 720px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 28px;
+  gap: 20px;
+}
+
+.md-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.md-dialog__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.md-dialog__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

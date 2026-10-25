@@ -1,0 +1,201 @@
+/**
+ * MD3 App Layout & macOS Shell
+ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--md-sys-color-background);
+}
+
+.app-shell {
+  display: flex;
+  flex: 1;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Navigation Rail (Desktop) */
+.md-nav-rail {
+  width: 80px;
+  background-color: var(--md-sys-color-surface-container-low);
+  border-right: 1px solid var(--md-sys-color-outline-variant);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0;
+  gap: 16px;
+  user-select: none;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.md-nav-rail__header {
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.md-nav-rail__logo {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--md-sys-shape-corner-medium);
+  background: linear-gradient(135deg, var(--md-sys-color-primary), #003865);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+  box-shadow: var(--md-sys-elevation-level1);
+}
+
+.md-nav-rail__item {
+  width: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: var(--md-sys-color-on-surface-variant);
+  cursor: pointer;
+  padding: 4px 0;
+  border-radius: var(--md-sys-shape-corner-medium);
+  transition: all var(--md-sys-motion-duration-short) var(--md-sys-motion-easing-standard);
+}
+
+.md-nav-rail__item:hover {
+  color: var(--md-sys-color-on-surface);
+}
+
+.md-nav-rail__icon-container {
+  width: 56px;
+  height: 32px;
+  border-radius: var(--md-sys-shape-corner-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--md-sys-motion-duration-short) var(--md-sys-motion-easing-standard);
+}
+
+.md-nav-rail__item:hover .md-nav-rail__icon-container {
+  background-color: var(--md-sys-color-surface-container-highest);
+}
+
+.md-nav-rail__item--active {
+  color: var(--md-sys-color-on-surface);
+}
+
+.md-nav-rail__item--active .md-nav-rail__icon-container {
+  background-color: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+
+.md-nav-rail__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.md-nav-rail__footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+/* App Main Viewport */
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--md-sys-color-background);
+}
+
+/* Top App Bar */
+.md-top-app-bar {
+  height: 64px;
+  background-color: var(--md-sys-color-surface-container);
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.md-top-app-bar__title-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.md-top-app-bar__ticker-badge {
+  background-color: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  padding: 4px 12px;
+  border-radius: var(--md-sys-shape-corner-full);
+  font-family: var(--md-ref-typeface-mono);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+
+.md-top-app-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Scrollable Workspace */
+.app-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Grid Layouts */
+.grid-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.grid-analytics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 1100px) {
+  .grid-analytics {
+    grid-template-columns: 1fr;
+  }
+}
+
+.grid-columns-split {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 900px) {
+  .grid-columns-split {
+    grid-template-columns: 1fr;
+  }
+}

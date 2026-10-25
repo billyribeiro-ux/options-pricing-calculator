@@ -1,0 +1,92 @@
+/**
+ * Google Material Design 3 (MD3) Design Tokens
+ * Strict CSS Custom Properties - Zero Tailwind
+ */
+
+:root {
+  /* MD3 Light Color Palette (Baseline / Dynamic) */
+  --md-sys-color-primary: #00629e;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #cfe5ff;
+  --md-sys-color-on-primary-container: #001d34;
+
+  --md-sys-color-secondary: #526070;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #d5e4f7;
+  --md-sys-color-on-secondary-container: #0f1d2a;
+
+  --md-sys-color-tertiary: #695779;
+  --md-sys-color-on-tertiary: #ffffff;
+  --md-sys-color-tertiary-container: #f1dbff;
+  --md-sys-color-on-tertiary-container: #241532;
+
+  --md-sys-color-error: #ba1a1a;
+  --md-sys-color-on-error: #ffffff;
+  --md-sys-color-error-container: #ffdad6;
+  --md-sys-color-on-error-container: #410002;
+
+  /* Surfaces & Containers (Light) */
+  --md-sys-color-background: #f8f9ff;
+  --md-sys-color-on-background: #191c20;
+  --md-sys-color-surface: #f8f9ff;
+  --md-sys-color-on-surface: #191c20;
+  --md-sys-color-surface-variant: #dfe2eb;
+  --md-sys-color-on-surface-variant: #43474e;
+  
+  --md-sys-color-surface-dim: #d8dae2;
+  --md-sys-color-surface-bright: #f8f9ff;
+  --md-sys-color-surface-container-lowest: #ffffff;
+  --md-sys-color-surface-container-low: #f2f3fa;
+  --md-sys-color-surface-container: #eceef4;
+  --md-sys-color-surface-container-high: #e6e8ee;
+  --md-sys-color-surface-container-highest: #e0e2e9;
+
+  --md-sys-color-outline: #73777f;
+  --md-sys-color-outline-variant: #c3c7d0;
+  --md-sys-color-shadow: #000000;
+  --md-sys-color-scrim: #000000;
+
+  /* Financial Domain Semantic Colors */
+  --quant-color-gain: #00875a;
+  --quant-color-on-gain: #ffffff;
+  --quant-color-gain-container: #d3f9e5;
+  --quant-color-on-gain-container: #003822;
+
+  --quant-color-loss: #de350b;
+  --quant-color-on-loss: #ffffff;
+  --quant-color-loss-container: #ffebe6;
+  --quant-color-on-loss-container: #5a0c00;
+
+  --quant-color-neutral: #0065ff;
+  --quant-color-neutral-container: #deebff;
+
+  /* MD3 Elevation Shadows */
+  --md-sys-elevation-level0: none;
+  --md-sys-elevation-level1: 0px 1px 3px 1px rgba(0, 0, 0, 0.12), 0px 1px 2px 0px rgba(0, 0, 0, 0.18);
+  --md-sys-elevation-level2: 0px 2px 6px 2px rgba(0, 0, 0, 0.12), 0px 1px 2px 0px rgba(0, 0, 0, 0.20);
+  --md-sys-elevation-level3: 0px 4px 8px 3px rgba(0, 0, 0, 0.12), 0px 1px 3px 0px rgba(0, 0, 0, 0.22);
+  --md-sys-elevation-level4: 0px 6px 10px 4px rgba(0, 0, 0, 0.12), 0px 2px 3px 0px rgba(0, 0, 0, 0.22);
+  --md-sys-elevation-level5: 0px 8px 12px 6px rgba(0, 0, 0, 0.12), 0px 4px 4px 0px rgba(0, 0, 0, 0.22);
+
+  /* MD3 Shape Corner Radiuses */
+  --md-sys-shape-corner-none: 0px;
+  --md-sys-shape-corner-xs: 4px;
+  --md-sys-shape-corner-small: 8px;
+  --md-sys-shape-corner-medium: 12px;
+  --md-sys-shape-corner-large: 16px;
+  --md-sys-shape-corner-xl: 28px;
+  --md-sys-shape-corner-full: 9999px;
+
+  /* MD3 Transitions & Timing */
+  --md-sys-motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --md-sys-motion-easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --md-sys-motion-easing-decelerated: cubic-bezier(0, 0, 0.2, 1);
+  --md-sys-motion-duration-short: 150ms;
+  --md-sys-motion-duration-medium: 250ms;
+  --md-sys-motion-duration-long: 400ms;
+
+  /* Typography Fonts */
+  --md-ref-typeface-brand: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  --md-ref-typeface-plain: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  --md-ref-typeface-mono: "SF Mono", "Fira Code", "Roboto Mono", Menlo, Consolas, monospace;
+}

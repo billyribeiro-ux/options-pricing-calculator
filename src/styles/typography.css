@@ -1,0 +1,165 @@
+/**
+ * Google Material Design 3 Typography Scale
+ * Display, Headline, Title, Body, Label + Financial Mono
+ */
+
+body {
+  font-family: var(--md-ref-typeface-plain);
+  color: var(--md-sys-color-on-background);
+  background-color: var(--md-sys-color-background);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Display */
+.display-large {
+  font-family: var(--md-ref-typeface-brand);
+  font-size: 57px;
+  line-height: 64px;
+  letter-spacing: -0.25px;
+  font-weight: 400;
+}
+
+.display-medium {
+  font-family: var(--md-ref-typeface-brand);
+  font-size: 45px;
+  line-height: 52px;
+  letter-spacing: 0px;
+  font-weight: 400;
+}
+
+.display-small {
+  font-family: var(--md-ref-typeface-brand);
+  font-size: 36px;
+  line-height: 44px;
+  letter-spacing: 0px;
+  font-weight: 400;
+}
+
+/* Headline */
+.headline-large {
+  font-family: var(--md-ref-typeface-brand);
+  font-size: 32px;
+  line-height: 40px;
+  letter-spacing: 0px;
+  font-weight: 500;
+}
+
+.headline-medium {
+  font-family: var(--md-ref-typeface-brand);
+  font-size: 28px;
+  line-height: 36px;
+  letter-spacing: 0px;
+  font-weight: 500;
+}
+
+.headline-small {
+  font-family: var(--md-ref-typeface-brand);
+  font-size: 24px;
+  line-height: 32px;
+  letter-spacing: 0px;
+  font-weight: 500;
+}
+
+/* Title */
+.title-large {
+  font-family: var(--md-ref-typeface-plain);
+  font-size: 22px;
+  line-height: 28px;
+  letter-spacing: 0px;
+  font-weight: 500;
+}
+
+.title-medium {
+  font-family: var(--md-ref-typeface-plain);
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: 0.15px;
+  font-weight: 600;
+}
+
+.title-small {
+  font-family: var(--md-ref-typeface-plain);
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0.1px;
+  font-weight: 600;
+}
+
+/* Body */
+.body-large {
+  font-family: var(--md-ref-typeface-plain);
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: 0.5px;
+  font-weight: 400;
+}
+
+.body-medium {
+  font-family: var(--md-ref-typeface-plain);
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0.25px;
+  font-weight: 400;
+}
+
+.body-small {
+  font-family: var(--md-ref-typeface-plain);
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.4px;
+  font-weight: 400;
+}
+
+/* Label */
+.label-large {
+  font-family: var(--md-ref-typeface-plain);
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0.1px;
+  font-weight: 600;
+}
+
+.label-medium {
+  font-family: var(--md-ref-typeface-plain);
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.label-small {
+  font-family: var(--md-ref-typeface-plain);
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+/* Financial Monospace Scale */
+.mono-large {
+  font-family: var(--md-ref-typeface-mono);
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mono-medium {
+  font-family: var(--md-ref-typeface-mono);
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.mono-small {
+  font-family: var(--md-ref-typeface-mono);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
