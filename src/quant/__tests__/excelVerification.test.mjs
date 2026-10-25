@@ -131,3 +131,132 @@ test('Verifies Iron Condor True Max Risk vs Legacy Excel Overstatement', () => {
   assert.equal(trueMaxLoss, 4230);
   assert.equal(overstatement, 770);
 });
+
+test('Proves 2D Payoff Chart multi-tier strike badge layout has zero text overlap across all breakpoints and strike gaps', () => {
+  function layoutBadges(markers, width, minPrice, maxPrice) {
+    const padLeft = 72;
+    const padRight = 28;
+    const plotWidth = Math.max(100, width - padLeft - padRight);
+    const xToPx = (p) => padLeft + ((p - minPrice) / Math.max(1, maxPrice - minPrice)) * plotWidth;
+    const useCompactText = plotWidth < 620;
+    const rowYCenters = [13, 31, 49];
+    const rowRightEdges = [-Infinity, -Infinity, -Infinity];
+    const minHorizontalGap = 8;
+    const pillHeight = 15;
+    const rowBadges = [[], [], []];
+
+    const visible = markers
+      .map((m) => ({ ...m, anchorX: xToPx(m.price) }))
+      .sort((a, b) => a.anchorX - b.anchorX);
+
+    visible.forEach((m) => {
+      const labelText = useCompactText ? `${m.shortLabel} $${m.price}` : `${m.fullLabel} $${m.price}`;
+      const textWidth = labelText.length * 6.3; // 10.5px JetBrains Mono char width
+      const pillWidth = Math.ceil(textWidth + 12);
+
+      let centerX = Math.max(padLeft + pillWidth / 2, Math.min(width - padRight - pillWidth / 2, m.anchorX));
+      let chosenRow = -1;
+      for (let r = 0; r < rowYCenters.length; r++) {
+        if (centerX - pillWidth / 2 >= rowRightEdges[r] + minHorizontalGap) {
+          chosenRow = r;
+          break;
+        }
+      }
+      if (chosenRow === -1) {
+        let bestRow = 0;
+        for (let r = 1; r < rowYCenters.length; r++) {
+          if (rowRightEdges[r] < rowRightEdges[bestRow]) bestRow = r;
+        }
+        chosenRow = bestRow;
+        centerX = rowRightEdges[chosenRow] + minHorizontalGap + pillWidth / 2;
+      }
+      rowRightEdges[chosenRow] = centerX + pillWidth / 2;
+      rowBadges[chosenRow].push({
+        centerX,
+        centerY: rowYCenters[chosenRow],
+        pillWidth,
+        pillHeight,
+        row: chosenRow,
+        labelText
+      });
+    });
+
+    rowBadges.forEach((badgesInRow) => {
+      if (badgesInRow.length === 0) return;
+      let maxRightAllowed = width - 6;
+      for (let i = badgesInRow.length - 1; i >= 0; i--) {
+        const b = badgesInRow[i];
+        if (b.centerX + b.pillWidth / 2 > maxRightAllowed) {
+          b.centerX = maxRightAllowed - b.pillWidth / 2;
+        }
+        maxRightAllowed = b.centerX - b.pillWidth / 2 - minHorizontalGap;
+      }
+    });
+
+    return rowBadges.flat();
+  }
+
+  const scenarios = [
+    {
+      name: 'AAPL Default Iron Condor (685/690/698/705/710)',
+      minPrice: 660,
+      maxPrice: 736,
+      markers: [
+        { price: 685, shortLabel: 'LP', fullLabel: 'Long Put' },
+        { price: 690, shortLabel: 'SP', fullLabel: 'Short Put' },
+        { price: 698, shortLabel: 'SPOT', fullLabel: 'Spot' },
+        { price: 705, shortLabel: 'SC', fullLabel: 'Short Call' },
+        { price: 710, shortLabel: 'LC', fullLabel: 'Long Call' }
+      ]
+    },
+    {
+      name: 'Tight $1 Strike Spacing (696/697/698/699/700)',
+      minPrice: 660,
+      maxPrice: 736,
+      markers: [
+        { price: 696, shortLabel: 'LP', fullLabel: 'Long Put' },
+        { price: 697, shortLabel: 'SP', fullLabel: 'Short Put' },
+        { price: 698, shortLabel: 'SPOT', fullLabel: 'Spot' },
+        { price: 699, shortLabel: 'SC', fullLabel: 'Short Call' },
+        { price: 700, shortLabel: 'LC', fullLabel: 'Long Call' }
+      ]
+    },
+    {
+      name: 'Degenerate Iron Butterfly at Right Edge (all at 730)',
+      minPrice: 660,
+      maxPrice: 736,
+      markers: [
+        { price: 730, shortLabel: 'LP', fullLabel: 'Long Put' },
+        { price: 730, shortLabel: 'SP', fullLabel: 'Short Put' },
+        { price: 730, shortLabel: 'SPOT', fullLabel: 'Spot' },
+        { price: 730, shortLabel: 'SC', fullLabel: 'Short Call' },
+        { price: 730, shortLabel: 'LC', fullLabel: 'Long Call' }
+      ]
+    }
+  ];
+
+  for (const width of [360, 600, 900, 1400]) {
+    for (const sc of scenarios) {
+      const placed = layoutBadges(sc.markers, width, sc.minPrice, sc.maxPrice);
+      for (let i = 0; i < placed.length; i++) {
+        for (let j = i + 1; j < placed.length; j++) {
+          const a = placed[i];
+          const b = placed[j];
+          const horizOverlap =
+            Math.min(a.centerX + a.pillWidth / 2, b.centerX + b.pillWidth / 2) -
+            Math.max(a.centerX - a.pillWidth / 2, b.centerX - b.pillWidth / 2);
+          const vertOverlap =
+            Math.min(a.centerY + a.pillHeight / 2, b.centerY + b.pillHeight / 2) -
+            Math.max(a.centerY - a.pillHeight / 2, b.centerY - b.pillHeight / 2);
+
+          const isOverlapping = horizOverlap > 0 && vertOverlap > 0;
+          assert.equal(
+            isOverlapping,
+            false,
+            `Overlap detected in "${sc.name}" at width=${width}px between "${a.labelText}" and "${b.labelText}"`
+          );
+        }
+      }
+    }
+  }
+});

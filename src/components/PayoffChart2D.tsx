@@ -1,22 +1,38 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { IronCondorEvaluation, UnderlyingParams } from '../quant/types';
 import { blackScholes } from '../quant/blackScholes';
 import { normalPdf } from '../quant/distributions';
 import { formatCurrency } from '../utils/formatters';
-import { LineChart } from 'lucide-react';
+import { LineChart, ZoomIn } from 'lucide-react';
 
 interface PayoffChart2DProps {
   condorEval: IronCondorEvaluation;
   params: UnderlyingParams;
 }
 
+interface StrikeMarker {
+  price: number;
+  shortLabel: string;
+  fullLabel: string;
+  color: string;
+  priority: number;
+}
+
 export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [hoveredData, setHoveredData] = useState<{ price: number; pnlExp: number; pnlNow: number } | null>(null);
+  const [hoveredData, setHoveredData] = useState<{
+    price: number;
+    pnlExp: number;
+    pnlNow: number;
+    mouseX: number;
+  } | null>(null);
+  const [zoomMode, setZoomMode] = useState<'focus' | 'wide'>('focus');
+  const [canvasSize, setCanvasSize] = useState<{ width: number; height: number }>({ width: 800, height: 320 });
 
   const S0 = params.spotPrice;
-  const T = params.dte / 365;
-  const sigma = params.atmIV;
+  const T = Math.max(0.001, params.dte / 365);
+  const sigma = Math.max(0.01, params.atmIV);
   const contracts = params.contracts;
   const multiplier = contracts * 100;
   const totalCredit = condorEval.totalCreditDollars;
@@ -29,34 +45,65 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
   const includeCall = condorEval.mode === 'iron-condor' || condorEval.mode === 'call-spread';
   const includePut = condorEval.mode === 'iron-condor' || condorEval.mode === 'put-spread';
 
-  // Domain range: +/- 3.5 std dev
-  const range = S0 * sigma * Math.sqrt(T) * 3.5;
-  const minPrice = Math.floor(S0 - range);
-  const maxPrice = Math.ceil(S0 + range);
+  // Adaptive domain range: 'focus' frames strikes + 1.8 std dev for spacious label separation; 'wide' frames 3.2 std dev
+  const stdDev = S0 * sigma * Math.sqrt(T);
+  const sigmaMult = zoomMode === 'focus' ? 1.85 : 3.25;
+  const rawMin = Math.min(
+    S0 - stdDev * sigmaMult,
+    includePut ? Math.min(ps, pl) - stdDev * 0.5 : S0
+  );
+  const rawMax = Math.max(
+    S0 + stdDev * sigmaMult,
+    includeCall ? Math.max(cs, cl) + stdDev * 0.5 : S0
+  );
+  const minPrice = Math.floor(rawMin);
+  const maxPrice = Math.ceil(rawMax);
 
   // Expiration PnL function
-  const calcPnLExpiration = (S: number): number => {
-    let callLoss = 0;
-    if (includeCall && S > cs) {
-      callLoss = Math.min(S - cs, Math.abs(cl - cs)) * multiplier;
-    }
-    let putLoss = 0;
-    if (includePut && S < ps) {
-      putLoss = Math.min(ps - S, Math.abs(ps - pl)) * multiplier;
-    }
-    return totalCredit - callLoss - putLoss;
-  };
+  const calcPnLExpiration = useCallback(
+    (S: number): number => {
+      let callLoss = 0;
+      if (includeCall && S > cs) {
+        callLoss = Math.min(S - cs, Math.abs(cl - cs)) * multiplier;
+      }
+      let putLoss = 0;
+      if (includePut && S < ps) {
+        putLoss = Math.min(ps - S, Math.abs(ps - pl)) * multiplier;
+      }
+      return totalCredit - callLoss - putLoss;
+    },
+    [includeCall, includePut, cs, cl, ps, pl, multiplier, totalCredit]
+  );
 
   // Today PnL function (Black-Scholes theoretical value today vs entry credit)
-  const calcPnLToday = (S: number): number => {
-    const sc = includeCall ? blackScholes('call', S, cs, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
-    const lc = includeCall ? blackScholes('call', S, cl, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
-    const sp = includePut ? blackScholes('put', S, ps, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
-    const lp = includePut ? blackScholes('put', S, pl, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
+  const calcPnLToday = useCallback(
+    (S: number): number => {
+      const sc = includeCall ? blackScholes('call', S, cs, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
+      const lc = includeCall ? blackScholes('call', S, cl, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
+      const sp = includePut ? blackScholes('put', S, ps, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
+      const lp = includePut ? blackScholes('put', S, pl, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
 
-    const currentCost = (-sc + lc - sp + lp) * multiplier;
-    return totalCredit + currentCost;
-  };
+      const currentCost = (-sc + lc - sp + lp) * multiplier;
+      return totalCredit + currentCost;
+    },
+    [includeCall, includePut, cs, cl, ps, pl, T, sigma, params.riskFreeRate, params.dividendYield, multiplier, totalCredit]
+  );
+
+  // Observe container resize so canvas is always crisp and accurately measured
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const updateSize = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        setCanvasSize({ width: Math.floor(rect.width), height: Math.floor(rect.height) });
+      }
+    };
+    updateSize();
+    const ro = new ResizeObserver(updateSize);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -64,58 +111,82 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Handle high DPI
     const dpr = window.devicePixelRatio || 1;
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
+    const width = canvasSize.width;
+    const height = Math.max(300, canvasSize.height);
     canvas.width = width * dpr;
     canvas.height = height * dpr;
     ctx.scale(dpr, dpr);
 
     ctx.clearRect(0, 0, width, height);
 
-    // Padding
-    const padTop = 30;
-    const padBottom = 40;
-    const padLeft = 60;
-    const padRight = 30;
+    // Generous top padding (64px) for multi-tier non-overlapping strike pill badges,
+    // and bottom padding (38px) for evenly-spaced X-axis price ticks.
+    const padTop = 64;
+    const padBottom = 38;
+    const padLeft = 72;
+    const padRight = 28;
 
-    const plotWidth = width - padLeft - padRight;
-    const plotHeight = height - padTop - padBottom;
+    const plotWidth = Math.max(100, width - padLeft - padRight);
+    const plotHeight = Math.max(100, height - padTop - padBottom);
 
     // PnL vertical limits
-    const maxGain = condorEval.maxGain * 1.25;
-    const maxLoss = -condorEval.maxLoss * 1.15;
-    const pnlRange = maxGain - maxLoss;
+    const maxGainVal = Math.max(condorEval.maxGain, 100);
+    const maxLossVal = Math.max(condorEval.maxLoss, 100);
+    const topPnL = maxGainVal * 1.28;
+    const bottomPnL = -maxLossVal * 1.18;
+    const pnlRange = Math.max(1, topPnL - bottomPnL);
 
-    const xToPx = (p: number) => padLeft + ((p - minPrice) / (maxPrice - minPrice)) * plotWidth;
-    const yToPx = (pnl: number) => padTop + ((maxGain - pnl) / pnlRange) * plotHeight;
+    const xToPx = (p: number) => padLeft + ((p - minPrice) / Math.max(1, maxPrice - minPrice)) * plotWidth;
+    const yToPx = (pnl: number) => padTop + ((topPnL - pnl) / pnlRange) * plotHeight;
 
-    const zeroY = yToPx(0);
+    const zeroY = Math.max(padTop, Math.min(height - padBottom, yToPx(0)));
 
-    // Grid lines & Zero Axis
-    ctx.strokeStyle = 'rgba(128, 128, 128, 0.2)';
+    // 0. Shaded +/- 1 Std Dev Expected Move Zone
+    const x1SigmaLow = Math.max(padLeft, xToPx(S0 - stdDev));
+    const x1SigmaHigh = Math.min(width - padRight, xToPx(S0 + stdDev));
+    if (x1SigmaHigh > x1SigmaLow) {
+      ctx.fillStyle = 'rgba(76, 154, 255, 0.04)';
+      ctx.fillRect(x1SigmaLow, padTop, x1SigmaHigh - x1SigmaLow, plotHeight);
+    }
+
+    // Horizontal reference grid lines (Max Gain, $0 Breakeven, Max Loss)
+    const yMaxGain = yToPx(condorEval.maxGain);
+    const yMaxLoss = yToPx(-condorEval.maxLoss);
+
+    ctx.strokeStyle = 'rgba(128, 128, 128, 0.14)';
     ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    [yMaxGain, yMaxLoss].forEach((gy) => {
+      if (gy >= padTop && gy <= height - padBottom) {
+        ctx.beginPath();
+        ctx.moveTo(padLeft, gy);
+        ctx.lineTo(width - padRight, gy);
+        ctx.stroke();
+      }
+    });
+    ctx.setLineDash([]);
 
+    // Solid Zero Axis
+    ctx.strokeStyle = 'rgba(140, 150, 165, 0.35)';
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
     ctx.moveTo(padLeft, zeroY);
     ctx.lineTo(width - padRight, zeroY);
     ctx.stroke();
 
-    // 1. Plot Probability Density Curve (bell curve overlay at bottom)
+    // 1. Plot Probability Density Curve (bell curve overlay at bottom of plot)
     ctx.beginPath();
-    ctx.strokeStyle = 'rgba(76, 154, 255, 0.4)';
-    ctx.fillStyle = 'rgba(76, 154, 255, 0.08)';
+    ctx.strokeStyle = 'rgba(76, 154, 255, 0.42)';
+    ctx.fillStyle = 'rgba(76, 154, 255, 0.09)';
     ctx.lineWidth = 1.5;
 
     let startedPdf = false;
-    const stdDev = S0 * sigma * Math.sqrt(T);
-
     for (let px = padLeft; px <= width - padRight; px += 3) {
       const p = minPrice + ((px - padLeft) / plotWidth) * (maxPrice - minPrice);
       const z = (p - S0) / stdDev;
-      const pdf = normalPdf(z) / stdDev; // normalized
-      const pdfHeight = pdf * stdDev * 80; // visual scaling
+      const pdf = normalPdf(z); // peak at z=0 is ~0.3989
+      const pdfHeight = pdf * (plotHeight * 0.48);
       const py = height - padBottom - pdfHeight;
 
       if (!startedPdf) {
@@ -131,7 +202,32 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
     ctx.fill();
     ctx.stroke();
 
-    // 2. Plot Expiration Payoff (Fill + Line)
+    // 2. Plot Expiration Payoff (Profit/Loss shaded fill + crisp line)
+    ctx.save();
+    ctx.beginPath();
+    for (let px = padLeft; px <= width - padRight; px += 2) {
+      const p = minPrice + ((px - padLeft) / plotWidth) * (maxPrice - minPrice);
+      const pnl = calcPnLExpiration(p);
+      const py = yToPx(pnl);
+      if (px === padLeft) {
+        ctx.moveTo(px, zeroY);
+        ctx.lineTo(px, py);
+      } else {
+        ctx.lineTo(px, py);
+      }
+    }
+    ctx.lineTo(width - padRight, zeroY);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, padTop, 0, height - padBottom);
+    const zeroRatio = Math.max(0, Math.min(1, (zeroY - padTop) / plotHeight));
+    grad.addColorStop(0, 'rgba(0, 135, 90, 0.20)');
+    grad.addColorStop(zeroRatio, 'rgba(0, 135, 90, 0.04)');
+    grad.addColorStop(Math.min(1, zeroRatio + 0.001), 'rgba(222, 53, 11, 0.04)');
+    grad.addColorStop(1, 'rgba(222, 53, 11, 0.18)');
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.restore();
+
     ctx.beginPath();
     let started = false;
     for (let px = padLeft; px <= width - padRight; px += 2) {
@@ -145,8 +241,7 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
         ctx.lineTo(px, py);
       }
     }
-
-    ctx.strokeStyle = '#00875a';
+    ctx.strokeStyle = '#00a86b';
     ctx.lineWidth = 2.5;
     ctx.stroke();
 
@@ -165,66 +260,272 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
       }
     }
     ctx.strokeStyle = '#4c9aff';
-    ctx.lineWidth = 1.8;
-    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 4]);
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // 4. Vertical Strike Markers
-    const drawMarker = (price: number, label: string, color: string) => {
-      const x = xToPx(price);
-      if (x < padLeft || x > width - padRight) return;
+    // 4. Collision-Free Multi-Tier Strike Marker Layout Engine
+    // Collect active markers and sort left-to-right by price
+    const rawMarkers: StrikeMarker[] = [];
+    if (includePut) {
+      rawMarkers.push({ price: pl, shortLabel: 'LP', fullLabel: 'Long Put', color: '#26a69a', priority: 2 });
+      rawMarkers.push({ price: ps, shortLabel: 'SP', fullLabel: 'Short Put', color: '#36b37e', priority: 1 });
+    }
+    rawMarkers.push({ price: S0, shortLabel: 'SPOT', fullLabel: 'Spot', color: '#4c9aff', priority: 0 });
+    if (includeCall) {
+      rawMarkers.push({ price: cs, shortLabel: 'SC', fullLabel: 'Short Call', color: '#ff7452', priority: 1 });
+      rawMarkers.push({ price: cl, shortLabel: 'LC', fullLabel: 'Long Call', color: '#ff5630', priority: 2 });
+    }
+
+    const visibleMarkers = rawMarkers
+      .map((m) => ({ ...m, anchorX: xToPx(m.price) }))
+      .filter((m) => m.anchorX >= padLeft - 2 && m.anchorX <= width - padRight + 2)
+      .sort((a, b) => a.anchorX - b.anchorX);
+
+    // Draw vertical dashed strike lines first
+    visibleMarkers.forEach((m) => {
+      ctx.beginPath();
+      ctx.strokeStyle = m.color;
+      ctx.lineWidth = m.shortLabel === 'SPOT' ? 1.5 : 1.1;
+      ctx.setLineDash(m.shortLabel === 'SPOT' ? [4, 3] : [2, 3]);
+      ctx.moveTo(m.anchorX, padTop);
+      ctx.lineTo(m.anchorX, height - padBottom);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+
+    // Measure text and assign each badge to one of 3 vertical rows (y = 13, 31, 49)
+    // using a two-pass per-row interval solver that guarantees >= 8px horizontal gap and >= 3px vertical gap.
+    ctx.font = '600 10.5px "JetBrains Mono", monospace';
+    const useCompactText = plotWidth < 620;
+    const rowYCenters = [13, 31, 49];
+    const rowRightEdges = [-Infinity, -Infinity, -Infinity];
+    const minHorizontalGap = 8;
+    const pillHeight = 15;
+
+    interface PlacedBadge {
+      anchorX: number;
+      centerX: number;
+      pillWidth: number;
+      row: number;
+      labelText: string;
+      color: string;
+    }
+
+    const rowBadges: PlacedBadge[][] = [[], [], []];
+
+    visibleMarkers.forEach((m) => {
+      const labelText = useCompactText
+        ? `${m.shortLabel} $${m.price}`
+        : `${m.fullLabel} $${m.price}`;
+      const textWidth = ctx.measureText(labelText).width;
+      const pillWidth = Math.ceil(textWidth + 12);
+
+      let centerX = Math.max(
+        padLeft + pillWidth / 2,
+        Math.min(width - padRight - pillWidth / 2, m.anchorX)
+      );
+
+      // Find the highest row (0, 1, or 2) where [centerX - pillWidth/2, centerX + pillWidth/2] does not collide
+      let chosenRow = -1;
+      for (let r = 0; r < rowYCenters.length; r++) {
+        if (centerX - pillWidth / 2 >= rowRightEdges[r] + minHorizontalGap) {
+          chosenRow = r;
+          break;
+        }
+      }
+
+      // If all 3 rows are occupied at this X, pick the row with the smallest right-edge and push right
+      if (chosenRow === -1) {
+        let bestRow = 0;
+        for (let r = 1; r < rowYCenters.length; r++) {
+          if (rowRightEdges[r] < rowRightEdges[bestRow]) {
+            bestRow = r;
+          }
+        }
+        chosenRow = bestRow;
+        centerX = rowRightEdges[chosenRow] + minHorizontalGap + pillWidth / 2;
+      }
+
+      rowRightEdges[chosenRow] = centerX + pillWidth / 2;
+      rowBadges[chosenRow].push({
+        anchorX: m.anchorX,
+        centerX,
+        pillWidth,
+        row: chosenRow,
+        labelText,
+        color: m.color
+      });
+    });
+
+    // Pass 2 (Right-to-Left boundary clamp): if the rightmost badge in any row overflows (width - 6),
+    // shift it left and propagate leftward while strictly preserving minHorizontalGap.
+    rowBadges.forEach((badgesInRow) => {
+      if (badgesInRow.length === 0) return;
+      let maxRightAllowed = width - 6;
+      for (let i = badgesInRow.length - 1; i >= 0; i--) {
+        const b = badgesInRow[i];
+        if (b.centerX + b.pillWidth / 2 > maxRightAllowed) {
+          b.centerX = maxRightAllowed - b.pillWidth / 2;
+        }
+        maxRightAllowed = b.centerX - b.pillWidth / 2 - minHorizontalGap;
+      }
+    });
+
+    // Render leader lines and non-overlapping pill badges
+    rowBadges.flat().forEach((b) => {
+      const centerY = rowYCenters[b.row];
+
+      // Leader line from bottom of pill badge to top of vertical strike line at (anchorX, padTop)
+      ctx.beginPath();
+      ctx.strokeStyle = b.color;
+      ctx.globalAlpha = 0.65;
+      ctx.lineWidth = 1;
+      ctx.moveTo(b.centerX, centerY + pillHeight / 2);
+      ctx.lineTo(b.anchorX, padTop);
+      ctx.stroke();
+      ctx.globalAlpha = 1.0;
+
+      // Rounded pill background
+      const pillX = b.centerX - b.pillWidth / 2;
+      const pillY = centerY - pillHeight / 2;
+      ctx.fillStyle = 'rgba(17, 19, 24, 0.90)';
+      ctx.strokeStyle = b.color;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(pillX, pillY, b.pillWidth, pillHeight, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      // Badge text
+      ctx.fillStyle = b.color;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(b.labelText, b.centerX, centerY + 0.5);
+    });
+
+    // 5. Evenly-Spaced, Non-Overlapping Bottom X-Axis Price Ticks
+    const minPxBetweenXTicks = 85;
+    const maxTicks = Math.max(3, Math.floor(plotWidth / minPxBetweenXTicks));
+    const rawStep = (maxPrice - minPrice) / maxTicks;
+    const niceSteps = [1, 2, 5, 10, 15, 20, 25, 50, 100];
+    const tickStep = niceSteps.find((s) => s >= rawStep) || Math.ceil(rawStep / 10) * 10;
+    const firstTick = Math.ceil(minPrice / tickStep) * tickStep;
+
+    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.fillStyle = 'rgba(150, 160, 175, 0.85)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+
+    let lastTickPx = -Infinity;
+    for (let p = firstTick; p <= maxPrice; p += tickStep) {
+      const px = xToPx(p);
+      if (px >= padLeft + 15 && px <= width - padRight - 15 && px - lastTickPx >= 60) {
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(150, 160, 175, 0.35)';
+        ctx.lineWidth = 1;
+        ctx.moveTo(px, height - padBottom);
+        ctx.lineTo(px, height - padBottom + 5);
+        ctx.stroke();
+
+        ctx.fillText(`$${p}`, px, height - padBottom + 8);
+        lastTickPx = px;
+      }
+    }
+
+    // 6. Collision-Guarded Y-Axis Labels
+    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+
+    const yLabels: { y: number; text: string; color: string }[] = [
+      { y: yMaxGain, text: `+${formatCurrency(condorEval.maxGain, 0)}`, color: '#36b37e' },
+      { y: zeroY, text: '$0', color: 'rgba(160, 170, 185, 0.9)' },
+      { y: yMaxLoss, text: `-${formatCurrency(condorEval.maxLoss, 0)}`, color: '#ff5630' }
+    ];
+
+    const drawnYs: number[] = [];
+    yLabels.forEach((lbl) => {
+      if (lbl.y < padTop - 4 || lbl.y > height - padBottom + 4) return;
+      const collides = drawnYs.some((dy) => Math.abs(dy - lbl.y) < 15);
+      if (!collides) {
+        ctx.fillStyle = lbl.color;
+        ctx.fillText(lbl.text, padLeft - 8, lbl.y);
+        drawnYs.push(lbl.y);
+      }
+    });
+
+    // 7. Interactive Hover Crosshair & Curve Intersection Dots
+    if (hoveredData && hoveredData.mouseX >= padLeft && hoveredData.mouseX <= width - padRight) {
+      const hx = hoveredData.mouseX;
+      const hyExp = yToPx(hoveredData.pnlExp);
+      const hyNow = yToPx(hoveredData.pnlNow);
 
       ctx.beginPath();
-      ctx.strokeStyle = color;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
       ctx.lineWidth = 1;
-      ctx.setLineDash([2, 2]);
-      ctx.moveTo(x, padTop);
-      ctx.lineTo(x, height - padBottom);
+      ctx.setLineDash([3, 3]);
+      ctx.moveTo(hx, padTop);
+      ctx.lineTo(hx, height - padBottom);
       ctx.stroke();
       ctx.setLineDash([]);
 
-      ctx.fillStyle = color;
-      ctx.font = '10px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(label, x, padTop - 8);
-      ctx.fillText(`$${price}`, x, height - padBottom + 16);
-    };
+      // Expiration Curve Dot
+      ctx.beginPath();
+      ctx.fillStyle = hoveredData.pnlExp >= 0 ? '#00a86b' : '#ff5630';
+      ctx.arc(hx, hyExp, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
 
-    if (includePut) {
-      drawMarker(ps, 'Short Put', '#36b37e');
-      drawMarker(pl, 'Long Put', '#00875a');
+      // Today Curve Dot
+      ctx.beginPath();
+      ctx.fillStyle = '#4c9aff';
+      ctx.arc(hx, hyNow, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
     }
-    if (includeCall) {
-      drawMarker(cs, 'Short Call', '#ff5630');
-      drawMarker(cl, 'Long Call', '#de350b');
-    }
-    drawMarker(S0, 'Spot', '#4c9aff');
-
-    // Y Axis Labels
-    ctx.fillStyle = 'rgba(128, 128, 128, 0.8)';
-    ctx.font = '10px monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText(`+${formatCurrency(maxGain, 0)}`, padLeft - 8, yToPx(maxGain) + 4);
-    ctx.fillText('$0', padLeft - 8, zeroY + 4);
-    ctx.fillText(`${formatCurrency(maxLoss, 0)}`, padLeft - 8, yToPx(maxLoss) + 4);
-  }, [condorEval, params, S0, T, sigma, minPrice, maxPrice]);
+  }, [
+    condorEval,
+    params,
+    S0,
+    T,
+    sigma,
+    stdDev,
+    minPrice,
+    maxPrice,
+    cs,
+    cl,
+    ps,
+    pl,
+    includeCall,
+    includePut,
+    calcPnLExpiration,
+    calcPnLToday,
+    canvasSize,
+    hoveredData
+  ]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const padLeft = 60;
-    const padRight = 30;
+    const padLeft = 72;
+    const padRight = 28;
     const plotWidth = canvas.clientWidth - padLeft - padRight;
 
-    if (x >= padLeft && x <= canvas.clientWidth - padRight) {
+    if (x >= padLeft && x <= canvas.clientWidth - padRight && plotWidth > 0) {
       const price = minPrice + ((x - padLeft) / plotWidth) * (maxPrice - minPrice);
       setHoveredData({
         price,
         pnlExp: calcPnLExpiration(price),
-        pnlNow: calcPnLToday(price)
+        pnlNow: calcPnLToday(price),
+        mouseX: x
       });
     } else {
       setHoveredData(null);
@@ -232,15 +533,35 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
   };
 
   return (
-    <div className="md-card md-card--elevated" style={{ height: '100%', minHeight: 380 }}>
-      <div className="md-card__header" style={{ marginBottom: 8 }}>
-        <h3 className="md-card__title">
-          <LineChart size={18} color="var(--md-sys-color-primary)" />
-          2D Payoff & Probability Density Curves
-        </h3>
-        <div style={{ display: 'flex', gap: 16, fontSize: 12 }}>
+    <div className="md-card md-card--elevated" style={{ height: '100%', minHeight: 390, display: 'flex', flexDirection: 'column' }}>
+      <div className="md-card__header" style={{ marginBottom: 8, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <h3 className="md-card__title">
+            <LineChart size={18} color="var(--md-sys-color-primary)" />
+            2D Payoff & Probability Density Curves
+          </h3>
+          <div className="md-segmented-button">
+            <button
+              className={`md-segmented-button__segment ${zoomMode === 'focus' ? 'md-segmented-button__segment--active' : ''}`}
+              onClick={() => setZoomMode('focus')}
+              title="Focus around active strikes and ±1.8σ expected move"
+            >
+              <ZoomIn size={12} style={{ marginRight: 4 }} />
+              Focus (±1.8σ)
+            </button>
+            <button
+              className={`md-segmented-button__segment ${zoomMode === 'wide' ? 'md-segmented-button__segment--active' : ''}`}
+              onClick={() => setZoomMode('wide')}
+              title="Wide tail view (±3.2σ)"
+            >
+              Wide (±3.2σ)
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 16, fontSize: 12, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ width: 12, height: 3, backgroundColor: '#00875a', display: 'inline-block' }} />
+            <span style={{ width: 12, height: 3, backgroundColor: '#00a86b', display: 'inline-block' }} />
             <span>At Expiration</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -249,15 +570,15 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ width: 12, height: 8, backgroundColor: 'rgba(76, 154, 255, 0.25)', display: 'inline-block' }} />
-            <span>Probability Density</span>
+            <span>Probability Density (±1σ Zone)</span>
           </div>
         </div>
       </div>
 
-      <div style={{ position: 'relative', flex: 1, minHeight: 280 }}>
+      <div ref={containerRef} style={{ position: 'relative', flex: 1, minHeight: 300 }}>
         <canvas
           ref={canvasRef}
-          style={{ width: '100%', height: '100%', display: 'block' }}
+          style={{ width: '100%', height: '100%', display: 'block', cursor: 'crosshair' }}
           onMouseMove={handleMouseMove}
           onMouseLeave={() => setHoveredData(null)}
         />
@@ -267,12 +588,13 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
             className="md-card md-card--tonal"
             style={{
               position: 'absolute',
-              top: 10,
-              right: 10,
+              top: 66,
+              right: 16,
               padding: '8px 12px',
               fontSize: 12,
               pointerEvents: 'none',
-              boxShadow: 'var(--md-sys-elevation-level2)'
+              boxShadow: 'var(--md-sys-elevation-level2)',
+              border: '1px solid var(--md-sys-color-outline-variant)'
             }}
           >
             <div>
@@ -282,18 +604,18 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
               At Expiry P&L:{' '}
               <span
                 className="mono-small"
-                style={{ color: hoveredData.pnlExp >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)' }}
+                style={{ fontWeight: 700, color: hoveredData.pnlExp >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)' }}
               >
-                {formatCurrency(hoveredData.pnlExp)}
+                {hoveredData.pnlExp >= 0 ? '+' : ''}{formatCurrency(hoveredData.pnlExp)}
               </span>
             </div>
             <div>
               Today P&L:{' '}
               <span
                 className="mono-small"
-                style={{ color: hoveredData.pnlNow >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)' }}
+                style={{ fontWeight: 700, color: hoveredData.pnlNow >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)' }}
               >
-                {formatCurrency(hoveredData.pnlNow)}
+                {hoveredData.pnlNow >= 0 ? '+' : ''}{formatCurrency(hoveredData.pnlNow)}
               </span>
             </div>
           </div>

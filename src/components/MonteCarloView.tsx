@@ -82,8 +82,8 @@ export const MonteCarloView: React.FC<MonteCarloViewProps> = ({ condorEval, para
     const xToPx = (stepIdx: number) => padLeft + (stepIdx / 10) * plotW;
     const yToPx = (p: number) => padTop + ((maxP - p) / (maxP - minP)) * plotH;
 
-    // Draw Strike Boundaries
-    const drawBound = (strike: number, label: string, color: string) => {
+    // Draw Strike Boundaries with non-overlapping pill badges
+    const drawBound = (strike: number, label: string, color: string, position: 'above' | 'below') => {
       const y = yToPx(strike);
       ctx.beginPath();
       ctx.strokeStyle = color;
@@ -93,13 +93,32 @@ export const MonteCarloView: React.FC<MonteCarloViewProps> = ({ condorEval, para
       ctx.lineTo(width - padRight, y);
       ctx.stroke();
       ctx.setLineDash([]);
+
+      const text = `${label} $${strike}`;
+      ctx.font = '600 10px "JetBrains Mono", monospace';
+      const tw = ctx.measureText(text).width + 10;
+      const th = 15;
+      const bx = width - padRight - tw - 4;
+      const by = position === 'above' ? Math.max(padTop, y - th - 3) : Math.min(height - padBottom - th, y + 3);
+
+      ctx.fillStyle = 'rgba(17, 19, 24, 0.85)';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, tw, th, 4);
+      ctx.fill();
+      ctx.stroke();
+
       ctx.fillStyle = color;
-      ctx.font = '10px monospace';
-      ctx.fillText(`${label} $${strike}`, width - padRight - 75, y - 4);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, bx + tw / 2, by + th / 2 + 0.5);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
     };
 
-    if (includeCall) drawBound(cs, 'Short Call', '#ff5630');
-    if (includePut) drawBound(ps, 'Short Put', '#36b37e');
+    if (includeCall) drawBound(cs, 'Short Call', '#ff5630', 'above');
+    if (includePut) drawBound(ps, 'Short Put', '#36b37e', 'below');
 
     // Draw Trajectories
     result.pricePathsSample.forEach((path: number[]) => {
