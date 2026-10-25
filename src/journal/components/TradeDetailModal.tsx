@@ -374,16 +374,16 @@ export const TradeDetailModal: React.FC<TradeDetailModalProps> = ({ trade, onClo
                     id="detail-close-grade"
                     name="closeGrade"
                     className="md-select"
-                    style={{ height: 36, color: 'var(--md-sys-color-on-surface)' }}
+                    style={{ height: 36, color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container)' }}
                     value={grade}
                     onChange={(e) => setGrade(e.target.value as ExecutionGrade)}
                   >
-                    <option value="A+">A+</option>
-                    <option value="A">A</option>
-                    <option value="B+">B+</option>
-                    <option value="B">B</option>
-                    <option value="C">C</option>
-                    <option value="D">D</option>
+                    <option value="A+" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>A+</option>
+                    <option value="A" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>A</option>
+                    <option value="B+" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>B+</option>
+                    <option value="B" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>B</option>
+                    <option value="C" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>C</option>
+                    <option value="D" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>D</option>
                   </select>
                 </div>
                 <button className="md-button md-button--filled" style={{ height: 36 }} onClick={handleClosePosition}>
@@ -414,8 +414,17 @@ export const TradeDetailModal: React.FC<TradeDetailModalProps> = ({ trade, onClo
             <textarea
               id="detail-post-mortem"
               name="postMortemLessons"
-              className="md-input-wrapper"
-              style={{ width: '100%', height: 64, padding: 8, resize: 'vertical', fontFamily: 'inherit' }}
+              className="md-textarea"
+              style={{
+                width: '100%',
+                height: 64,
+                padding: 8,
+                resize: 'vertical',
+                fontFamily: 'inherit',
+                color: 'var(--md-sys-color-on-surface)',
+                backgroundColor: 'var(--md-sys-color-surface-container)',
+                border: '1px solid var(--md-sys-color-outline-variant)'
+              }}
               placeholder="Document post-trade execution review, exit timing analysis, and key takeaways..."
               value={lessons}
               onChange={(e) => setLessons(e.target.value)}

@@ -41,6 +41,11 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
     { id: 'leg-2', type: 'put', position: 'buy', strike: 570, entryPrice: 0.60, contracts: 5, status: 'open' }
   ]);
 
+  const optionStyle: React.CSSProperties = {
+    color: 'var(--md-sys-color-on-surface)',
+    backgroundColor: 'var(--md-sys-color-surface-container-high)'
+  };
+
   if (!isOpen) return null;
 
   const toggleMindsetTag = (tag: MindsetTag) => {
@@ -144,19 +149,19 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
               id="new-trade-strategy"
               name="strategyType"
               className="md-select"
-              style={{ color: 'var(--md-sys-color-on-surface)' }}
+              style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container)' }}
               value={strategyType}
               onChange={(e) => setStrategyType(e.target.value as any)}
             >
-              <option value="iron-condor">Iron Condor</option>
-              <option value="bull-put-spread">Bull Put Spread</option>
-              <option value="bear-call-spread">Bear Call Spread</option>
-              <option value="iron-butterfly">Iron Butterfly</option>
-              <option value="covered-call">Covered Call</option>
-              <option value="cash-secured-put">Cash-Secured Put</option>
-              <option value="long-call">Long Call</option>
-              <option value="long-put">Long Put</option>
-              <option value="equity">Equity Shares</option>
+              <option value="iron-condor" style={optionStyle}>Iron Condor</option>
+              <option value="bull-put-spread" style={optionStyle}>Bull Put Spread</option>
+              <option value="bear-call-spread" style={optionStyle}>Bear Call Spread</option>
+              <option value="iron-butterfly" style={optionStyle}>Iron Butterfly</option>
+              <option value="covered-call" style={optionStyle}>Covered Call</option>
+              <option value="cash-secured-put" style={optionStyle}>Cash-Secured Put</option>
+              <option value="long-call" style={optionStyle}>Long Call</option>
+              <option value="long-put" style={optionStyle}>Long Put</option>
+              <option value="equity" style={optionStyle}>Equity Shares</option>
             </select>
           </div>
 
@@ -166,12 +171,12 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
               id="new-trade-status"
               name="status"
               className="md-select"
-              style={{ color: 'var(--md-sys-color-on-surface)' }}
+              style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container)' }}
               value={status}
               onChange={(e) => setStatus(e.target.value as any)}
             >
-              <option value="open">Open</option>
-              <option value="closed">Closed</option>
+              <option value="open" style={optionStyle}>Open</option>
+              <option value="closed" style={optionStyle}>Closed</option>
             </select>
           </div>
         </div>
@@ -295,16 +300,16 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
               id="new-trade-grade"
               name="executionGrade"
               className="md-select"
-              style={{ color: 'var(--md-sys-color-on-surface)' }}
+              style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container)' }}
               value={executionGrade}
               onChange={(e) => setExecutionGrade(e.target.value as any)}
             >
-              <option value="A+">A+ (Perfect Execution)</option>
-              <option value="A">A (Followed Plan)</option>
-              <option value="B+">B+ (Good Execution)</option>
-              <option value="B">B (Acceptable)</option>
-              <option value="C">C (Deviated slightly)</option>
-              <option value="D">D (Rule Broken)</option>
+              <option value="A+" style={optionStyle}>A+ (Perfect Execution)</option>
+              <option value="A" style={optionStyle}>A (Followed Plan)</option>
+              <option value="B+" style={optionStyle}>B+ (Good Execution)</option>
+              <option value="B" style={optionStyle}>B (Acceptable)</option>
+              <option value="C" style={optionStyle}>C (Deviated slightly)</option>
+              <option value="D" style={optionStyle}>D (Rule Broken)</option>
             </select>
           </div>
         </div>
@@ -345,24 +350,24 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
                   name={`legPosition_${idx}`}
                   aria-label={`Leg ${idx + 1} Position`}
                   className="md-select"
-                  style={{ height: 30, fontSize: 12, color: 'var(--md-sys-color-on-surface)' }}
+                  style={{ height: 30, fontSize: 12, color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container)' }}
                   value={leg.position}
                   onChange={(e) => handleUpdateLeg(idx, { position: e.target.value as 'buy' | 'sell' })}
                 >
-                  <option value="sell">SELL</option>
-                  <option value="buy">BUY</option>
+                  <option value="sell" style={optionStyle}>SELL</option>
+                  <option value="buy" style={optionStyle}>BUY</option>
                 </select>
                 <select
                   id={`new-trade-leg-type-${idx}`}
                   name={`legType_${idx}`}
                   aria-label={`Leg ${idx + 1} Type`}
                   className="md-select"
-                  style={{ height: 30, fontSize: 12, color: 'var(--md-sys-color-on-surface)' }}
+                  style={{ height: 30, fontSize: 12, color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container)' }}
                   value={leg.type}
                   onChange={(e) => handleUpdateLeg(idx, { type: e.target.value as 'call' | 'put' })}
                 >
-                  <option value="put">PUT</option>
-                  <option value="call">CALL</option>
+                  <option value="put" style={optionStyle}>PUT</option>
+                  <option value="call" style={optionStyle}>CALL</option>
                 </select>
                 <div className="md-input-wrapper" style={{ height: 30 }}>
                   <span className="md-input-prefix">$</span>
@@ -437,8 +442,17 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
           <textarea
             id="new-trade-thesis"
             name="thesis"
-            className="md-input-wrapper"
-            style={{ height: 60, padding: 8, width: '100%', resize: 'none', fontFamily: 'inherit' }}
+            className="md-textarea"
+            style={{
+              height: 60,
+              padding: 8,
+              width: '100%',
+              resize: 'none',
+              fontFamily: 'inherit',
+              color: 'var(--md-sys-color-on-surface)',
+              backgroundColor: 'var(--md-sys-color-surface-container)',
+              border: '1px solid var(--md-sys-color-outline-variant)'
+            }}
             placeholder="Trade rationale, support/resistance levels, news catalysts..."
             value={thesis}
             onChange={(e) => setThesis(e.target.value)}

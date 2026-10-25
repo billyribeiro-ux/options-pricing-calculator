@@ -159,8 +159,17 @@ export const LogCalculatorTradeModal: React.FC<LogCalculatorTradeModalProps> = (
           <textarea
             id="log-calc-thesis"
             name="thesis"
-            className="md-input-wrapper"
-            style={{ height: 80, padding: 10, width: '100%', resize: 'none', fontFamily: 'inherit' }}
+            className="md-textarea"
+            style={{
+              height: 80,
+              padding: 10,
+              width: '100%',
+              resize: 'none',
+              fontFamily: 'inherit',
+              color: 'var(--md-sys-color-on-surface)',
+              backgroundColor: 'var(--md-sys-color-surface-container)',
+              border: '1px solid var(--md-sys-color-outline-variant)'
+            }}
             placeholder="Why are you taking this trade? (e.g. Expected move boundary, IV expansion, key support test...)"
             value={thesis}
             onChange={(e) => setThesis(e.target.value)}
@@ -192,16 +201,16 @@ export const LogCalculatorTradeModal: React.FC<LogCalculatorTradeModalProps> = (
               id="log-calc-grade"
               name="executionGrade"
               className="md-select"
-              style={{ color: 'var(--md-sys-color-on-surface)' }}
+              style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container)' }}
               value={executionGrade}
               onChange={(e) => setExecutionGrade(e.target.value as any)}
             >
-              <option value="A+">A+ (Perfect Setup & Timing)</option>
-              <option value="A">A (Followed Plan Strictly)</option>
-              <option value="B+">B+ (Good Execution)</option>
-              <option value="B">B (Minor Deviation)</option>
-              <option value="C">C (Hesitant or Rushed)</option>
-              <option value="D">D (Violated Core Rule)</option>
+              <option value="A+" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>A+ (Perfect Setup & Timing)</option>
+              <option value="A" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>A (Followed Plan Strictly)</option>
+              <option value="B+" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>B+ (Good Execution)</option>
+              <option value="B" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>B (Minor Deviation)</option>
+              <option value="C" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>C (Hesitant or Rushed)</option>
+              <option value="D" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>D (Violated Core Rule)</option>
             </select>
           </div>
         </div>
