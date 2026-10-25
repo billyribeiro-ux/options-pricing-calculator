@@ -1,6 +1,6 @@
 # OptionsQuant — Tech Stack & Version Manifest
 
-This document outlines the complete technology stack, runtimes, package versions, and architectural decisions used in **OptionsQuant**. All packages are updated to the latest versions as of **October 25, 2026**.
+This document outlines the complete technology stack, runtimes, package versions, and architectural decisions used in **OptionsQuant**. All packages are on the cutting-edge latest versions as of **October 25, 2026**.
 
 ---
 
@@ -25,7 +25,7 @@ This document outlines the complete technology stack, runtimes, package versions
 | **React DOM** | `19.3.1` | `dependencies` | DOM rendering layer |
 | **TypeScript** | `7.0.2` | `devDependencies`| Strict typing for financial contracts, matrices, and Greeks |
 | **Vite** | `8.3.5` | `devDependencies`| Next-gen Rolldown Rust-based bundler and HMR dev server (158ms builds!) |
-| **@vitejs/plugin-react** | `6.1.2` | `devDependencies`| React Fast Refresh integration |
+| **@vitejs/plugin-react** | `6.1.2` | `devDependencies`| React 19 Fast Refresh integration |
 | **Lucide React** | `1.61.0` | `dependencies` | Clean vector iconography aligned with Material Design 3 |
 
 ---
@@ -34,8 +34,12 @@ This document outlines the complete technology stack, runtimes, package versions
 
 | Technology | Resolved Version | Role in Architecture |
 | :--- | :--- | :--- |
-| **Three.js** | `0.186.1` | GPU-accelerated WebGL rendering for 3D P&L Payoff Surface & 3D Volatility Skew |
+| **Three.js** | `0.186.1` | GPU-accelerated WebGL rendering for 3D surfaces & trade topology |
 | **@types/three** | `0.186.0` | TypeScript type declarations for Three.js geometry, shaders, and lighting |
+| **3D Equity Mountain** | Custom Three.js | Mountainous terrain mesh visualizing cumulative equity peaks and drawdown valleys |
+| **3D Trade Clusters** | Custom Three.js | 3D scatter topology mapping DTE ($X$) vs. Return on Risk ($Y$) vs. Implied Volatility ($Z$) |
+| **3D P&L Payoff** | Custom Three.js | Time-Decay Waterfall surface mapping Price vs. Time vs. Strategy P&L |
+| **3D Volatility Skew**| Custom Three.js | Strike vs. Expiration vs. Implied Volatility surface modeling equity smirk |
 | **HTML5 Canvas 2D** | Native Web API | Sub-millisecond 2D payoff curves, normal probability density overlays, and crosshair hover |
 | **Canvas Monte Carlo** | Custom WebGL/Canvas | Visual rendering of 25 sample geometric Brownian motion trajectories & P&L histograms |
 
@@ -45,12 +49,19 @@ This document outlines the complete technology stack, runtimes, package versions
 
 > **Zero Tailwind CSS**: The styling is 100% custom, token-driven, and semantic. No CSS utility bloat or third-party CSS preprocessor dependencies.
 
+### Google MD3 Window Size Class Responsive Breakpoints
+* **Compact (`< 600px`)**: Shifts navigation rail to an adaptive bottom navigation bar, single-column fluid cards, mobile top app bar.
+* **Medium (`600px - 839.98px`)**: Compact 72px navigation rail, 2-column KPI grid.
+* **Expanded (`840px - 1199.98px`)**: 80px navigation rail, 2-column split views.
+* **Large (`1200px - 1599.98px`)**: 5-column KPI grid, desktop multi-pane layout.
+* **Extra Large (`>= 1600px`)**: Max-width institutional cockpit layout.
+
 | Module | Source File | Description |
 | :--- | :--- | :--- |
 | **Tokens & Colors** | [`src/styles/tokens.css`](file:///Users/billyribeiro/dev/options-pricing-calculator/src/styles/tokens.css) | Google MD3 tokens: `--md-sys-color-*`, `--md-sys-elevation-*`, `--md-sys-shape-*` |
 | **Theme Engine** | [`src/styles/theme.css`](file:///Users/billyribeiro/dev/options-pricing-calculator/src/styles/theme.css) | Dynamic Dark & Light mode switching + macOS glassmorphism (`backdrop-filter: blur(28px)`) |
 | **Typography Scale**| [`src/styles/typography.css`](file:///Users/billyribeiro/dev/options-pricing-calculator/src/styles/typography.css) | Google MD3 type scale: Display, Headline, Title, Body, Label, and tabular `mono-*` |
-| **Layout & Shell** | [`src/styles/layout.css`](file:///Users/billyribeiro/dev/options-pricing-calculator/src/styles/layout.css) | macOS titlebar drag regions, navigation rail, and responsive dashboard grid |
+| **Layout & Shell** | [`src/styles/layout.css`](file:///Users/billyribeiro/dev/options-pricing-calculator/src/styles/layout.css) | MD3 Window Size Classes, macOS titlebar drag regions, navigation rail & bottom bar |
 | **UI Components** | [`src/styles/components.css`](file:///Users/billyribeiro/dev/options-pricing-calculator/src/styles/components.css) | Elevated/tonal cards, segmented buttons, input fields, strike matrix table, dialogs |
 
 ---
@@ -78,27 +89,11 @@ This document outlines the complete technology stack, runtimes, package versions
 | **Iron Condor Model**| Custom Pure TS | [`src/quant/ironCondor.ts`](file:///Users/billyribeiro/dev/options-pricing-calculator/src/quant/ironCondor.ts) | Unified joint Iron Condor payoff, true margin, and mutual exclusivity risk modeling |
 | **Greeks Engine** | Custom Pure TS | [`src/quant/greeks.ts`](file:///Users/billyribeiro/dev/options-pricing-calculator/src/quant/greeks.ts) | Position Delta ($\Delta$), Gamma ($\Gamma$), Theta ($\Theta$), Vega ($\mathcal{V}$), Rho ($\rho$) |
 | **Monte Carlo Engine**| Custom Pure TS | [`src/quant/monteCarlo.ts`](file:///Users/billyribeiro/dev/options-pricing-calculator/src/quant/monteCarlo.ts) | 10,000-path Geometric Brownian Motion simulation, VaR 95/99%, CVaR 95% |
+| **Trader Journal Engine**| Custom Pure TS | [`src/journal/`](file:///Users/billyribeiro/dev/options-pricing-calculator/src/journal/) | Local-first trade storage, 1-click calculator bridge, calendar heatmap, and psychology audit |
 
 ---
 
-## 7. Build Output & Bundle Analysis (Vite 8 + Rolldown)
-
-* **Production Build Speed**: `~158 milliseconds`
-* **Bundle Optimization**: Manual code-splitting implemented in [`vite.config.ts`](file:///Users/billyribeiro/dev/options-pricing-calculator/vite.config.ts)
-
-```
-dist/index.html                             1.23 kB │ gzip:   0.58 kB
-dist/assets/index-emEz6ZGc.css             17.96 kB │ gzip:   3.31 kB
-dist/assets/rolldown-runtime-WkwZ5CU-.js    0.59 kB │ gzip:   0.36 kB
-dist/assets/index-DHVmsW-i.js              62.39 kB │ gzip:  15.55 kB
-dist/assets/vendor-CT9uoJia.js            230.99 kB │ gzip:  73.00 kB
-dist/assets/xlsx-G-OxlfVI.js              351.45 kB │ gzip: 118.10 kB
-dist/assets/three-D0pHtLUp.js             530.46 kB │ gzip: 131.42 kB
-```
-
----
-
-## 8. Command Reference
+## 7. Command Reference
 
 | Action | Command | Description |
 | :--- | :--- | :--- |
