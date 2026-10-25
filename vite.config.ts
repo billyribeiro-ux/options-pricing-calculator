@@ -13,6 +13,7 @@ export default defineConfig({
     target: 'esnext',
     minify: !process.env.TAURI_DEBUG,
     sourcemap: !!process.env.TAURI_DEBUG,
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks(id: string) {

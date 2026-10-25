@@ -1,7 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { JournalEntry } from './types';
 import { getJournalEntries, saveJournalEntry, deleteJournalEntry } from './storage';
-import { calculatePerformanceKPIs, calculateStrategyBreakdown } from './analytics';
+import {
+  calculatePerformanceKPIs,
+  calculateStrategyBreakdown,
+  calculateMindsetBreakdown,
+  calculateDayOfWeekBreakdown,
+  calculateEquityCurve
+} from './analytics';
 import { JournalKPIs } from './components/JournalKPIs';
 import { CalendarHeatmap } from './components/CalendarHeatmap';
 import { TradeLogTable } from './components/TradeLogTable';
@@ -22,10 +28,16 @@ export const JournalView: React.FC = () => {
 
   const kpis = useMemo(() => calculatePerformanceKPIs(entries), [entries]);
   const strategyBreakdown = useMemo(() => calculateStrategyBreakdown(entries), [entries]);
+  const mindsetBreakdown = useMemo(() => calculateMindsetBreakdown(entries), [entries]);
+  const dayOfWeekBreakdown = useMemo(() => calculateDayOfWeekBreakdown(entries), [entries]);
+  const equityCurve = useMemo(() => calculateEquityCurve(entries), [entries]);
 
   const handleSaveNewTrade = (trade: JournalEntry) => {
     saveJournalEntry(trade);
     setEntries(getJournalEntries());
+    if (selectedTrade && selectedTrade.id === trade.id) {
+      setSelectedTrade(trade);
+    }
   };
 
   const handleDeleteTrade = (id: string) => {
@@ -122,73 +134,164 @@ export const JournalView: React.FC = () => {
       )}
 
       {subView === 'analytics' && (
-        <div className="grid-analytics">
-          {/* Strategy Breakdown Card */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Cumulative Equity Curve Bar/Step Progression */}
           <div className="md-card md-card--elevated">
             <div className="md-card__header">
-              <h3 className="md-card__title">Performance by Strategy Type</h3>
+              <h3 className="md-card__title">Cumulative Realized Equity & Drawdown Progression</h3>
+              <span className="label-small" style={{ color: 'var(--md-sys-color-outline)' }}>
+                {equityCurve.length} Closed Trades
+              </span>
             </div>
-            <div className="md-table-container">
-              <table className="md-table">
-                <thead>
-                  <tr>
-                    <th>Strategy</th>
-                    <th>Trades</th>
-                    <th>Win Rate</th>
-                    <th>Total Net P&L</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {strategyBreakdown.map((s) => (
-                    <tr key={s.strategy}>
-                      <td style={{ textTransform: 'capitalize', fontWeight: 600 }}>
-                        {s.strategy.replace(/-/g, ' ')}
-                      </td>
-                      <td>{s.trades}</td>
-                      <td>{formatPercent(s.winRate)}</td>
-                      <td style={{ fontWeight: 700, color: s.totalPnL >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)' }}>
-                        {formatCurrency(s.totalPnL)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {equityCurve.length === 0 ? (
+              <div className="body-medium" style={{ color: 'var(--md-sys-color-outline)', padding: 16 }}>
+                No closed trades yet. Close an open trade or log a completed trade to view equity progression.
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${equityCurve.length}, minmax(60px, 1fr))`, gap: 8, alignItems: 'end', minHeight: 150, paddingTop: 12 }}>
+                {equityCurve.map((pt, idx) => {
+                  const maxEq = Math.max(...equityCurve.map((e) => Math.abs(e.cumulativeEquity)), 100);
+                  const heightPct = Math.max(12, Math.min(100, (Math.abs(pt.cumulativeEquity) / maxEq) * 100));
+                  const isPos = pt.cumulativeEquity >= 0;
+                  return (
+                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                      <span className="mono-small" style={{ fontSize: 11, color: isPos ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)', fontWeight: 700 }}>
+                        {formatCurrency(pt.cumulativeEquity, 0)}
+                      </span>
+                      <div
+                        style={{
+                          width: '100%',
+                          height: `${heightPct * 0.9}px`,
+                          minHeight: 14,
+                          borderRadius: '6px 6px 2px 2px',
+                          backgroundColor: isPos ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)',
+                          opacity: 0.85
+                        }}
+                        title={`${pt.date} (${pt.symbol}): Trade P&L ${formatCurrency(pt.tradePnL)} | Cumulative: ${formatCurrency(pt.cumulativeEquity)} | Drawdown: -${formatCurrency(pt.drawdown)}`}
+                      />
+                      <span className="label-small" style={{ fontSize: 10 }}>{pt.symbol}</span>
+                      <span style={{ fontSize: 9, color: 'var(--md-sys-color-outline)' }}>{pt.date.slice(5)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Psychology & Discipline Summary */}
-          <div className="md-card md-card--elevated">
-            <div className="md-card__header">
-              <h3 className="md-card__title">Psychological & Mindset Audit</h3>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div className="md-card md-card--tonal" style={{ padding: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span className="body-medium">Overall Plan Adherence</span>
-                  <span className="mono-medium" style={{ color: 'var(--quant-color-gain)' }}>
-                    {kpis.disciplineScore.toFixed(0)}%
-                  </span>
-                </div>
-                <div style={{ height: 6, backgroundColor: 'rgba(0,0,0,0.15)', borderRadius: 3, overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      width: `${kpis.disciplineScore}%`,
-                      height: '100%',
-                      backgroundColor: 'var(--quant-color-gain)'
-                    }}
-                  />
-                </div>
+          <div className="grid-analytics">
+            {/* Strategy Breakdown Card */}
+            <div className="md-card md-card--elevated">
+              <div className="md-card__header">
+                <h3 className="md-card__title">Performance by Strategy Type</h3>
               </div>
+              <div className="md-table-container">
+                <table className="md-table">
+                  <thead>
+                    <tr>
+                      <th>Strategy</th>
+                      <th>Trades</th>
+                      <th>Win Rate</th>
+                      <th>Total Net P&L</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {strategyBreakdown.map((s) => (
+                      <tr key={s.strategy}>
+                        <td style={{ textTransform: 'capitalize', fontWeight: 600 }}>
+                          {s.strategy.replace(/-/g, ' ')}
+                        </td>
+                        <td>{s.trades}</td>
+                        <td>{formatPercent(s.winRate)}</td>
+                        <td style={{ fontWeight: 700, color: s.totalPnL >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)' }}>
+                          {formatCurrency(s.totalPnL)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-              <div className="md-card md-card--tonal" style={{ padding: 14 }}>
-                <span className="title-small" style={{ display: 'block', marginBottom: 8 }}>
-                  Most Frequent Mindset Tags
-                </span>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  <span className="md-chip md-chip--gain">Disciplined (85%)</span>
-                  <span className="md-chip md-chip--gain">Pre-Market Plan (70%)</span>
-                  <span className="md-chip md-chip--neutral">Patient (60%)</span>
-                  <span className="md-chip md-chip--loss">FOMO (10%)</span>
+            {/* Psychology & Discipline Summary */}
+            <div className="md-card md-card--elevated">
+              <div className="md-card__header">
+                <h3 className="md-card__title">Psychological & Mindset Audit</h3>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div className="md-card md-card--tonal" style={{ padding: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span className="body-medium">Overall Plan Adherence</span>
+                    <span className="mono-medium" style={{ color: 'var(--quant-color-gain)' }}>
+                      {kpis.disciplineScore.toFixed(0)}%
+                    </span>
+                  </div>
+                  <div style={{ height: 6, backgroundColor: 'rgba(0,0,0,0.15)', borderRadius: 3, overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        width: `${kpis.disciplineScore}%`,
+                        height: '100%',
+                        backgroundColor: 'var(--quant-color-gain)'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="md-card md-card--tonal" style={{ padding: 14 }}>
+                  <span className="title-small" style={{ display: 'block', marginBottom: 8 }}>
+                    Live Mindset Tag Attribution (Computed from Journal)
+                  </span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {mindsetBreakdown.map((m) => {
+                      const chipClass =
+                        m.totalPnL > 0
+                          ? 'md-chip md-chip--gain'
+                          : m.totalPnL < 0
+                            ? 'md-chip md-chip--loss'
+                            : 'md-chip md-chip--neutral';
+                      return (
+                        <span
+                          key={m.tag}
+                          className={chipClass}
+                          style={{ textTransform: 'capitalize' }}
+                          title={`Trades: ${m.count} | Win Rate: ${formatPercent(m.winRate)} | Net P&L: ${formatCurrency(m.totalPnL)}`}
+                        >
+                          {m.tag} ({m.frequencyPct.toFixed(0)}% • {formatCurrency(m.totalPnL, 0)})
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Day of Week Attribution */}
+                <div className="md-card md-card--tonal" style={{ padding: 14 }}>
+                  <span className="title-small" style={{ display: 'block', marginBottom: 8 }}>
+                    Day-of-Week Edge Attribution
+                  </span>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6, textAlign: 'center' }}>
+                    {dayOfWeekBreakdown.map((d) => (
+                      <div
+                        key={d.day}
+                        style={{
+                          padding: '6px 4px',
+                          borderRadius: 6,
+                          backgroundColor: 'var(--md-sys-color-surface-container)'
+                        }}
+                      >
+                        <div className="label-small" style={{ fontSize: 10 }}>{d.day.slice(0, 3)}</div>
+                        <div
+                          className="mono-small"
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: d.totalPnL > 0 ? 'var(--quant-color-gain)' : d.totalPnL < 0 ? 'var(--quant-color-loss)' : 'var(--md-sys-color-outline)'
+                          }}
+                        >
+                          {formatCurrency(d.totalPnL, 0)}
+                        </div>
+                        <div style={{ fontSize: 10, color: 'var(--md-sys-color-outline)' }}>{d.trades} tr</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -200,6 +303,7 @@ export const JournalView: React.FC = () => {
       <TradeDetailModal
         trade={selectedTrade}
         onClose={() => setSelectedTrade(null)}
+        onUpdateTrade={handleSaveNewTrade}
       />
 
       <NewTradeModal

@@ -18,6 +18,9 @@ export const MonteCarloView: React.FC<MonteCarloViewProps> = ({ condorEval, para
   const ps = condorEval.putSpread.shortStrike;
   const pl = condorEval.putSpread.longStrike;
 
+  const includeCall = condorEval.mode === 'iron-condor' || condorEval.mode === 'call-spread';
+  const includePut = condorEval.mode === 'iron-condor' || condorEval.mode === 'put-spread';
+
   // Run simulation
   const result: MonteCarloResult = useMemo(() => {
     return runMonteCarloSimulation(
@@ -32,9 +35,10 @@ export const MonteCarloView: React.FC<MonteCarloViewProps> = ({ condorEval, para
       params.contracts,
       simCount,
       params.riskFreeRate,
-      params.dividendYield
+      params.dividendYield,
+      condorEval.mode
     );
-  }, [params.spotPrice, params.dte, params.atmIV, cs, cl, ps, pl, condorEval.totalCreditDollars, params.contracts, params.riskFreeRate, params.dividendYield, simCount, seed]);
+  }, [params.spotPrice, params.dte, params.atmIV, cs, cl, ps, pl, condorEval.totalCreditDollars, params.contracts, params.riskFreeRate, params.dividendYield, condorEval.mode, simCount, seed]);
 
   // Path Canvas Ref
   const pathCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -94,14 +98,14 @@ export const MonteCarloView: React.FC<MonteCarloViewProps> = ({ condorEval, para
       ctx.fillText(`${label} $${strike}`, width - padRight - 75, y - 4);
     };
 
-    drawBound(cs, 'Short Call', '#ff5630');
-    drawBound(ps, 'Short Put', '#36b37e');
+    if (includeCall) drawBound(cs, 'Short Call', '#ff5630');
+    if (includePut) drawBound(ps, 'Short Put', '#36b37e');
 
     // Draw Trajectories
     result.pricePathsSample.forEach((path: number[]) => {
       ctx.beginPath();
       const endPrice = path[path.length - 1];
-      const isProfitable = endPrice >= ps && endPrice <= cs;
+      const isProfitable = (!includePut || endPrice >= ps) && (!includeCall || endPrice <= cs);
       ctx.strokeStyle = isProfitable ? 'rgba(54, 179, 126, 0.45)' : 'rgba(255, 86, 48, 0.45)';
       ctx.lineWidth = 1.2;
 
@@ -119,7 +123,7 @@ export const MonteCarloView: React.FC<MonteCarloViewProps> = ({ condorEval, para
     ctx.font = '10px sans-serif';
     ctx.fillText('Day 0', padLeft, height - 10);
     ctx.fillText(`Day ${params.dte} (Expiry)`, width - padRight - 70, height - 10);
-  }, [result, params.spotPrice, params.dte, cs, cl, ps, pl]);
+  }, [result, params.spotPrice, params.dte, cs, cl, ps, pl, includeCall, includePut]);
 
   return (
     <div className="md-card md-card--elevated" style={{ gap: 20 }}>

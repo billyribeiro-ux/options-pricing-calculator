@@ -1,12 +1,24 @@
 import React, { useState } from 'react';
-import { JournalEntry, StrategyType, TradeStatus, ExecutionGrade, MindsetTag } from '../types';
-import { X, Plus } from 'lucide-react';
+import { JournalEntry, TradeLeg, StrategyType, TradeStatus, ExecutionGrade, MindsetTag } from '../types';
+import { X, Plus, Trash2 } from 'lucide-react';
 
 interface NewTradeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSaveTrade: (entry: JournalEntry) => void;
 }
+
+const ALL_MINDSET_TAGS: MindsetTag[] = [
+  'disciplined',
+  'patient',
+  'pre-market plan',
+  'fomo',
+  'hesitant',
+  'revenge trade',
+  'impulsive',
+  'over-leveraged',
+  'boredom entry'
+];
 
 export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, onSaveTrade }) => {
   const [symbol, setSymbol] = useState('SPY');
@@ -22,8 +34,44 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
   const [confidence, setConfidence] = useState<number>(8);
   const [executionGrade, setExecutionGrade] = useState<ExecutionGrade>('A');
   const [rulesFollowed, setRulesFollowed] = useState<boolean>(true);
+  const [selectedTags, setSelectedTags] = useState<MindsetTag[]>(['disciplined', 'pre-market plan']);
+
+  const [legs, setLegs] = useState<TradeLeg[]>([
+    { id: 'leg-1', type: 'put', position: 'sell', strike: 575, entryPrice: 1.45, contracts: 5, status: 'open' },
+    { id: 'leg-2', type: 'put', position: 'buy', strike: 570, entryPrice: 0.60, contracts: 5, status: 'open' }
+  ]);
 
   if (!isOpen) return null;
+
+  const toggleMindsetTag = (tag: MindsetTag) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const handleAddLeg = () => {
+    setLegs((prev) => [
+      ...prev,
+      {
+        id: `leg-${Date.now()}-${prev.length + 1}`,
+        type: 'call',
+        position: 'sell',
+        strike: 590,
+        entryPrice: 0.75,
+        contracts,
+        status: status === 'closed' ? 'closed' : 'open'
+      }
+    ]);
+  };
+
+  const handleUpdateLeg = (idx: number, patch: Partial<TradeLeg>) => {
+    setLegs((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  };
+
+  const handleRemoveLeg = (idx: number) => {
+    if (legs.length <= 1) return;
+    setLegs((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   const handleSave = () => {
     const totalPremium = netPrice * contracts * 100;
@@ -34,29 +82,22 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
       symbol: symbol.toUpperCase(),
       strategyType,
       status,
-      legs: [
-        {
-          id: `leg-${Date.now()}-1`,
-          type: 'put',
-          position: 'sell',
-          strike: 575,
-          entryPrice: netPrice + 0.3,
-          exitPrice: status === 'closed' ? 0.05 : undefined,
-          contracts,
-          status: status === 'closed' ? 'closed' : 'open'
-        }
-      ],
+      legs: legs.map((l) => ({
+        ...l,
+        contracts,
+        status: status === 'closed' ? 'closed' : 'open'
+      })),
       adjustments: [],
       netCreditOrDebitPerShare: netPrice,
       totalPremiumDollars: totalPremium,
-      feesAndCommissions: contracts * 1.30,
+      feesAndCommissions: contracts * legs.length * 0.65,
       realizedPnL: status === 'closed' ? realizedPnL : undefined,
       unrealizedPnL: status === 'open' ? 0 : undefined,
       maxRiskDollars: maxRisk,
       returnOnRisk: status === 'closed' && maxRisk > 0 ? realizedPnL / maxRisk : undefined,
       psychology: {
         confidence,
-        mindsetTags: ['disciplined', 'pre-market plan'] as MindsetTag[],
+        mindsetTags: selectedTags.length > 0 ? selectedTags : ['disciplined'],
         rulesFollowed,
         planAdherenceScore: rulesFollowed ? 100 : 70,
         executionGrade
@@ -243,7 +284,7 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0' }}>
           <input
             type="checkbox"
             id="new-trade-rules"
@@ -254,6 +295,103 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
           <label htmlFor="new-trade-rules" style={{ fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             Followed written trading plan & position risk limit
           </label>
+        </div>
+
+        {/* Option Legs Builder */}
+        <div className="md-card md-card--outlined" style={{ padding: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span className="label-medium">Option Legs ({legs.length})</span>
+            <button
+              type="button"
+              className="md-button md-button--tonal"
+              style={{ height: 26, padding: '0 10px', fontSize: 11 }}
+              onClick={handleAddLeg}
+            >
+              <Plus size={12} />
+              <span>Add Leg</span>
+            </button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {legs.map((leg, idx) => (
+              <div key={leg.id} style={{ display: 'grid', gridTemplateColumns: '85px 85px 1fr 1fr 28px', gap: 6, alignItems: 'center' }}>
+                <select
+                  className="md-input-wrapper"
+                  style={{ height: 30, fontSize: 12 }}
+                  value={leg.position}
+                  onChange={(e) => handleUpdateLeg(idx, { position: e.target.value as 'buy' | 'sell' })}
+                >
+                  <option value="sell">SELL</option>
+                  <option value="buy">BUY</option>
+                </select>
+                <select
+                  className="md-input-wrapper"
+                  style={{ height: 30, fontSize: 12 }}
+                  value={leg.type}
+                  onChange={(e) => handleUpdateLeg(idx, { type: e.target.value as 'call' | 'put' })}
+                >
+                  <option value="put">PUT</option>
+                  <option value="call">CALL</option>
+                </select>
+                <div className="md-input-wrapper" style={{ height: 30 }}>
+                  <span className="md-input-prefix">$</span>
+                  <input
+                    type="number"
+                    className="md-input"
+                    style={{ fontSize: 12 }}
+                    value={leg.strike || 0}
+                    onChange={(e) => handleUpdateLeg(idx, { strike: parseFloat(e.target.value) || 0 })}
+                    title="Strike Price"
+                  />
+                </div>
+                <div className="md-input-wrapper" style={{ height: 30 }}>
+                  <span className="md-input-prefix">@</span>
+                  <input
+                    type="number"
+                    step="0.05"
+                    className="md-input"
+                    style={{ fontSize: 12 }}
+                    value={leg.entryPrice}
+                    onChange={(e) => handleUpdateLeg(idx, { entryPrice: parseFloat(e.target.value) || 0 })}
+                    title="Entry Premium ($/sh)"
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="md-icon-button"
+                  style={{ width: 28, height: 28 }}
+                  onClick={() => handleRemoveLeg(idx)}
+                  disabled={legs.length <= 1}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Mindset Tag Chips */}
+        <div>
+          <label className="md-field-label" style={{ display: 'block', marginBottom: 6 }}>Mindset & Setup Tags</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {ALL_MINDSET_TAGS.map((tag) => {
+              const active = selectedTags.includes(tag);
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => toggleMindsetTag(tag)}
+                  className={`md-chip ${active ? 'md-chip--gain' : 'md-chip--neutral'}`}
+                  style={{
+                    cursor: 'pointer',
+                    border: active ? '1px solid var(--quant-color-gain)' : '1px solid transparent',
+                    textTransform: 'capitalize'
+                  }}
+                >
+                  {tag}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="md-field-group">

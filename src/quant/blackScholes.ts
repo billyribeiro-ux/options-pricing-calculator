@@ -8,6 +8,8 @@ export interface BSResult {
   theta: number; // per calendar day
   vega: number;  // per 1% IV shift (0.01)
   rho: number;   // per 1% rate shift (0.01)
+  vanna: number; // dDelta / dVol per 1% IV shift
+  volga: number; // dVega / dVol per 1% IV shift
   d1: number;
   d2: number;
   intrinsicValue: number;
@@ -62,6 +64,8 @@ export function blackScholes(
       theta: 0,
       vega: 0,
       rho: 0,
+      vanna: 0,
+      volga: 0,
       d1: 0,
       d2: 0,
       intrinsicValue: intrinsic,
@@ -93,14 +97,19 @@ export function blackScholes(
   const extrinsicValue = Math.max(0, price - intrinsicValue);
 
   // Common Greeks
-  const gamma = (eqT * normalPdf(d1)) / (S * sigma * sqrtT);
-  const vegaTotal = S * eqT * sqrtT * normalPdf(d1);
+  const pdfD1 = normalPdf(d1);
+  const gamma = (eqT * pdfD1) / (S * sigma * sqrtT);
+  const vegaTotal = S * eqT * sqrtT * pdfD1;
   const vega = vegaTotal * 0.01; // Scaled to 1% change
+
+  // Second-order Volatility Greeks (Vanna & Volga/Vomma)
+  const vanna = sigma > 0 ? (-eqT * pdfD1 * (d2 / sigma)) * 0.01 : 0;
+  const volga = sigma > 0 ? vega * ((d1 * d2) / sigma) * 0.01 : 0;
 
   let thetaAnnual: number;
   let rhoTotal: number;
 
-  const term1 = -(S * sigma * eqT * normalPdf(d1)) / (2 * sqrtT);
+  const term1 = -(S * sigma * eqT * pdfD1) / (2 * sqrtT);
   if (type === 'call') {
     thetaAnnual = term1 - r * K * erT * normalCdf(d2) + q * S * eqT * normalCdf(d1);
     rhoTotal = K * T * erT * normalCdf(d2);
@@ -119,6 +128,8 @@ export function blackScholes(
     theta,
     vega,
     rho,
+    vanna,
+    volga,
     d1,
     d2,
     intrinsicValue,

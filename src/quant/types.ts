@@ -1,5 +1,6 @@
 export type OptionType = 'call' | 'put';
 export type Position = 'buy' | 'sell';
+export type StrategyMode = 'iron-condor' | 'call-spread' | 'put-spread';
 
 export interface OptionLeg {
   id: string;
@@ -40,8 +41,8 @@ export interface GreeksResult {
   theta: number; // Per calendar day
   vega: number;  // Per 1% IV change
   rho: number;   // Per 1% interest rate change
-  vanna?: number;
-  volga?: number;
+  vanna: number; // dDelta / dVol per 1% IV change
+  volga: number; // dVega / dVol per 1% IV change
 }
 
 export interface SpreadEvaluation {
@@ -74,6 +75,7 @@ export interface SpreadEvaluation {
 }
 
 export interface IronCondorEvaluation {
+  mode: StrategyMode;
   callSpread: SpreadEvaluation;
   putSpread: SpreadEvaluation;
   totalCreditPerShare: number;
@@ -85,9 +87,10 @@ export interface IronCondorEvaluation {
   breakevenHigh: number;
   returnOnRisk: number; // maxGain / maxLoss
   returnOnMargin: number;
+  kellyFraction: number; // Optimal risk fraction based on exact EV & payoff odds
   
   // Probability metrics
-  probMaxProfit: number; // Stock finishes between put short & call short
+  probMaxProfit: number; // Stock finishes in max profit zone
   probAnyLoss: number;
   
   // Expected values
@@ -99,13 +102,16 @@ export interface IronCondorEvaluation {
 
 export interface StrikeMatrixRow {
   strike: number;
+  longStrike: number;
+  isSelected: boolean;
   probITM: number; // P(S > K) for calls, P(S < K) for puts
   probTouch: number; // 2 * probITM
-  excelGain: number | null;
-  excelPain: number | null;
-  excelEV: number | null;
-  excelRewardRisk: number | null;
-  excelPrice1to1: number | null;
-  exactEV: number | null;
-  exactPrice1to1: number | null;
+  excelGain: number;
+  excelPain: number;
+  excelEV: number;
+  excelRewardRisk: number;
+  excelPrice1to1: number;
+  exactEV: number;
+  exactRewardRisk: number;
+  exactPrice1to1: number;
 }

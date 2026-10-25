@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { JournalEntry } from '../types';
+import { formatCurrency } from '../../utils/formatters';
 import { Mountain, Layers, Play, Pause } from 'lucide-react';
 
 interface Journal3DLandscapeProps {
@@ -8,11 +9,12 @@ interface Journal3DLandscapeProps {
   onSelectTrade: (trade: JournalEntry) => void;
 }
 
-export const Journal3DLandscape: React.FC<Journal3DLandscapeProps> = ({ entries, onSelectTrade: _onSelectTrade }) => {
+export const Journal3DLandscape: React.FC<Journal3DLandscapeProps> = ({ entries, onSelectTrade }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [mode, setMode] = useState<'mountain' | 'clustering'>('mountain');
   const [wireframe, setWireframe] = useState<boolean>(false);
   const [autoRotate, setAutoRotate] = useState<boolean>(true);
+  const [hoveredTrade, setHoveredTrade] = useState<JournalEntry | null>(null);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -40,6 +42,7 @@ export const Journal3DLandscape: React.FC<Journal3DLandscapeProps> = ({ entries,
     scene.add(dirLight);
 
     const cleanupObjects: THREE.Object3D[] = [];
+    const interactiveMeshes: THREE.Object3D[] = [];
 
     // Chronological trade list
     const closedTrades = entries
@@ -59,13 +62,13 @@ export const Journal3DLandscape: React.FC<Journal3DLandscapeProps> = ({ entries,
       // Calculate cumulative equity and drawdowns
       let cumEquity = 0;
       let peak = 0;
-      const equityHistory: { equity: number; drawdown: number }[] = [];
+      const equityHistory: { equity: number; drawdown: number; trade?: JournalEntry }[] = [];
 
       closedTrades.forEach((t) => {
         cumEquity += t.realizedPnL || 0;
         if (cumEquity > peak) peak = cumEquity;
         const dd = peak - cumEquity;
-        equityHistory.push({ equity: cumEquity, drawdown: dd });
+        equityHistory.push({ equity: cumEquity, drawdown: dd, trade: t });
       });
 
       const maxEq = Math.max(...equityHistory.map((h) => h.equity), 1000);
@@ -111,6 +114,24 @@ export const Journal3DLandscape: React.FC<Journal3DLandscapeProps> = ({ entries,
       const mesh = new THREE.Mesh(geometry, mat);
       scene.add(mesh);
       cleanupObjects.push(mesh);
+
+      // Add interactive milestone spheres along the ridge for each trade
+      equityHistory.forEach((h, idx) => {
+        if (!h.trade) return;
+        const vx = equityHistory.length > 1 ? -25 + (idx / (equityHistory.length - 1)) * 50 : 0;
+        const vy = ((h.equity - h.drawdown * 0.8) / maxEq) * 16 + 0.6;
+        const spGeo = new THREE.SphereGeometry(0.9, 14, 14);
+        const spMat = new THREE.MeshStandardMaterial({
+          color: (h.trade.realizedPnL || 0) >= 0 ? 0x57d9a3 : 0xff8f73,
+          roughness: 0.2
+        });
+        const sp = new THREE.Mesh(spGeo, spMat);
+        sp.position.set(vx, vy, 0);
+        sp.userData = { trade: h.trade };
+        scene.add(sp);
+        cleanupObjects.push(sp);
+        interactiveMeshes.push(sp);
+      });
     } else {
       // 2. 3D TRADE CLUSTERING TOPOLOGY
       const nodeGroup = new THREE.Group();
@@ -128,7 +149,7 @@ export const Journal3DLandscape: React.FC<Journal3DLandscapeProps> = ({ entries,
         // Map IV to Z [-15, 15]
         const z = ((iv - 0.1) / 0.4) * 30 - 15;
 
-        const sphereGeo = new THREE.SphereGeometry(1.2, 16, 16);
+        const sphereGeo = new THREE.SphereGeometry(1.4, 20, 20);
         const isWin = pnl > 0;
         const isOpen = trade.status === 'open';
 
@@ -144,6 +165,7 @@ export const Journal3DLandscape: React.FC<Journal3DLandscapeProps> = ({ entries,
         sphere.position.set(x, y, z);
         sphere.userData = { trade };
         nodeGroup.add(sphere);
+        interactiveMeshes.push(sphere);
       });
 
       scene.add(nodeGroup);
@@ -156,8 +178,9 @@ export const Journal3DLandscape: React.FC<Journal3DLandscapeProps> = ({ entries,
     scene.add(grid);
     cleanupObjects.push(grid);
 
-    // Orbit controls
+    // Orbit controls & Raycaster
     let isDragging = false;
+    let dragDistance = 0;
     let prevMouseX = 0;
     let prevMouseY = 0;
     let theta = Math.PI / 4;
@@ -172,16 +195,41 @@ export const Journal3DLandscape: React.FC<Journal3DLandscapeProps> = ({ entries,
     };
     updateCamera();
 
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
     const onMouseDown = (e: MouseEvent) => {
       isDragging = true;
+      dragDistance = 0;
       prevMouseX = e.clientX;
       prevMouseY = e.clientY;
     };
 
     const onMouseMove = (e: MouseEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      if (
+        e.clientX >= rect.left &&
+        e.clientX <= rect.right &&
+        e.clientY >= rect.top &&
+        e.clientY <= rect.bottom
+      ) {
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const hits = raycaster.intersectObjects(interactiveMeshes, false);
+        if (hits.length > 0 && hits[0].object.userData?.trade) {
+          setHoveredTrade(hits[0].object.userData.trade);
+          renderer.domElement.style.cursor = 'pointer';
+        } else {
+          setHoveredTrade(null);
+          renderer.domElement.style.cursor = isDragging ? 'grabbing' : 'grab';
+        }
+      }
+
       if (isDragging) {
         const dx = e.clientX - prevMouseX;
         const dy = e.clientY - prevMouseY;
+        dragDistance += Math.abs(dx) + Math.abs(dy);
         prevMouseX = e.clientX;
         prevMouseY = e.clientY;
         theta -= dx * 0.008;
@@ -190,7 +238,20 @@ export const Journal3DLandscape: React.FC<Journal3DLandscapeProps> = ({ entries,
       }
     };
 
-    const onMouseUp = () => { isDragging = false; };
+    const onMouseUp = (e: MouseEvent) => {
+      if (isDragging && dragDistance < 5) {
+        const rect = renderer.domElement.getBoundingClientRect();
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const hits = raycaster.intersectObjects(interactiveMeshes, false);
+        if (hits.length > 0 && hits[0].object.userData?.trade) {
+          onSelectTrade(hits[0].object.userData.trade);
+        }
+      }
+      isDragging = false;
+    };
+
     const onWheel = (e: WheelEvent) => {
       radius = Math.max(20, Math.min(120, radius + e.deltaY * 0.05));
       updateCamera();
@@ -237,12 +298,12 @@ export const Journal3DLandscape: React.FC<Journal3DLandscapeProps> = ({ entries,
       cleanupObjects.forEach((obj) => scene.remove(obj));
       renderer.dispose();
     };
-  }, [entries, mode, wireframe, autoRotate]);
+  }, [entries, mode, wireframe, autoRotate, onSelectTrade]);
 
   return (
     <div className="md-card md-card--elevated" style={{ height: '100%', minHeight: 480, display: 'flex', flexDirection: 'column' }}>
       <div className="md-card__header" style={{ marginBottom: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <Mountain size={18} color="var(--md-sys-color-primary)" />
           <h3 className="md-card__title">3D Portfolio Topology & Performance Space</h3>
           <div className="md-segmented-button">
@@ -283,6 +344,42 @@ export const Journal3DLandscape: React.FC<Journal3DLandscapeProps> = ({ entries,
 
       <div style={{ flex: 1, position: 'relative' }}>
         <div ref={mountRef} style={{ width: '100%', height: '100%', borderRadius: 12, overflow: 'hidden' }} />
+
+        {hoveredTrade && (
+          <div
+            className="md-card md-card--tonal"
+            style={{
+              position: 'absolute',
+              top: 12,
+              right: 12,
+              padding: '10px 14px',
+              fontSize: 12,
+              pointerEvents: 'none',
+              background: 'rgba(17, 19, 24, 0.9)',
+              color: '#e2e2e8',
+              border: '1px solid rgba(255,255,255,0.14)'
+            }}
+          >
+            <div className="label-small" style={{ color: '#94ccff' }}>
+              {hoveredTrade.symbol} • {hoveredTrade.strategyType.replace(/-/g, ' ').toUpperCase()}
+            </div>
+            <div>Date: <span className="mono-small">{hoveredTrade.entryDate}</span></div>
+            <div>
+              P&L:{' '}
+              <span
+                className="mono-small"
+                style={{
+                  fontWeight: 700,
+                  color: (hoveredTrade.realizedPnL ?? hoveredTrade.unrealizedPnL ?? 0) >= 0 ? '#57d9a3' : '#ff8f73'
+                }}
+              >
+                {formatCurrency(hoveredTrade.realizedPnL ?? hoveredTrade.unrealizedPnL ?? 0)}
+              </span>
+            </div>
+            <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>Click sphere to inspect full trade audit</div>
+          </div>
+        )}
+
         <div
           style={{
             position: 'absolute',
@@ -297,8 +394,8 @@ export const Journal3DLandscape: React.FC<Journal3DLandscapeProps> = ({ entries,
           }}
         >
           {mode === 'mountain'
-            ? 'X: Trade Timeline | Y: Cumulative Equity | Z: Drawdown Depth (Ravines)'
-            : 'X: Days to Expiry (DTE) | Y: Return on Risk (RoR) | Z: Implied Volatility (IV)'}
+            ? 'Hover/Click Ridge Nodes to Inspect Trade | X: Trade Timeline | Y: Cumulative Equity | Z: Drawdown Depth'
+            : 'Hover/Click Trade Spheres to Open Audit | X: DTE | Y: Return on Risk | Z: Implied Volatility'}
         </div>
       </div>
     </div>

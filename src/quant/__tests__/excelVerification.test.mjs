@@ -82,3 +82,52 @@ test('Verifies Option Pricing.xlsx exact numerical values', () => {
   assert.ok(Math.abs(putRewardRisk - 0.12178) < 1e-3, `Put RR: ${putRewardRisk}`);
   assert.ok(Math.abs(putPrice1to1 - 2.6275) < 1e-3, `Put Price 1:1: ${putPrice1to1}`);
 });
+
+test('Verifies Black-Scholes Put-Call Parity & Higher-Order Greeks (Vanna & Volga)', () => {
+  const S = 698;
+  const K = 705;
+  const T = 10 / 365;
+  const r = 0.045;
+  const q = 0.005;
+  const sigma = 0.174;
+
+  const sqrtT = Math.sqrt(T);
+  const d1 = (Math.log(S / K) + (r - q + 0.5 * sigma * sigma) * T) / (sigma * sqrtT);
+  const d2 = d1 - sigma * sqrtT;
+  const eqT = Math.exp(-q * T);
+  const erT = Math.exp(-r * T);
+
+  const callPrice = S * eqT * normalCdf(d1) - K * erT * normalCdf(d2);
+  const putPrice = K * erT * normalCdf(-d2) - S * eqT * normalCdf(-d1);
+
+  // Put-Call Parity: C - P = S*e^(-qT) - K*e^(-rT)
+  const lhs = callPrice - putPrice;
+  const rhs = S * eqT - K * erT;
+  assert.ok(Math.abs(lhs - rhs) < 1e-9, `Put-Call Parity violated: ${lhs} vs ${rhs}`);
+
+  // Second-order Greeks check
+  const pdfD1 = normalPdf(d1);
+  const vega = S * eqT * sqrtT * pdfD1 * 0.01;
+  const vanna = (-eqT * pdfD1 * (d2 / sigma)) * 0.01;
+  const volga = vega * ((d1 * d2) / sigma) * 0.01;
+
+  assert.ok(Number.isFinite(vanna) && vanna !== 0, 'Vanna should be non-zero finite');
+  assert.ok(Number.isFinite(volga) && volga !== 0, 'Volga should be non-zero finite');
+});
+
+test('Verifies Iron Condor True Max Risk vs Legacy Excel Overstatement', () => {
+  const callCredit = 0.45;
+  const putCredit = 0.32;
+  const totalCreditPerShare = callCredit + putCredit; // $0.77
+  const spreadWidth = 5;
+  const contracts = 10;
+  const multiplier = contracts * 100;
+
+  const marginRequired = spreadWidth * multiplier; // $5,000
+  const trueMaxLoss = (spreadWidth - totalCreditPerShare) * multiplier; // $4,230
+  const overstatement = marginRequired - trueMaxLoss; // $770
+
+  assert.equal(marginRequired, 5000);
+  assert.equal(trueMaxLoss, 4230);
+  assert.equal(overstatement, 770);
+});

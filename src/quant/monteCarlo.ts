@@ -1,4 +1,5 @@
 import { inverseNormalCdf } from './distributions';
+import { StrategyMode } from './types';
 
 export interface MonteCarloResult {
   simulations: number;
@@ -9,12 +10,12 @@ export interface MonteCarloResult {
   var95: number;
   var99: number;
   cvar95: number;
-  pricePathsSample: number[][]; // For visual rendering of 50 sample paths
+  pricePathsSample: number[][]; // For visual rendering of sample paths
   histogram: { binStart: number; binEnd: number; count: number }[];
 }
 
 /**
- * Simulates Iron Condor expiration P&L using Geometric Brownian Motion.
+ * Simulates Iron Condor or Vertical Spread expiration P&L using Geometric Brownian Motion.
  */
 export function runMonteCarloSimulation(
   S0: number,
@@ -28,7 +29,8 @@ export function runMonteCarloSimulation(
   contracts: number,
   simulations = 10000,
   r = 0,
-  q = 0
+  q = 0,
+  mode: StrategyMode = 'iron-condor'
 ): MonteCarloResult {
   const T = dte / 365;
   const sqrtT = Math.sqrt(T);
@@ -40,7 +42,7 @@ export function runMonteCarloSimulation(
   let winCount = 0;
   let sumPnL = 0;
 
-  // Track sample paths (e.g. 30 paths across 10 time steps)
+  // Track sample paths (e.g. 25 paths across 10 time steps)
   const sampleSteps = 10;
   const samplePathCount = 25;
   const dt = T / sampleSteps;
@@ -60,6 +62,9 @@ export function runMonteCarloSimulation(
     samplePaths.push(path);
   }
 
+  const includeCall = mode === 'iron-condor' || mode === 'call-spread';
+  const includePut = mode === 'iron-condor' || mode === 'put-spread';
+
   // Terminal price simulation using inverse CDF for accurate normal variates
   for (let i = 0; i < simulations; i++) {
     const u = Math.random();
@@ -68,14 +73,14 @@ export function runMonteCarloSimulation(
 
     // Call wing liability
     let callLoss = 0;
-    if (ST > callShort) {
-      callLoss = Math.min(ST - callShort, callLong - callShort) * multiplier;
+    if (includeCall && ST > callShort) {
+      callLoss = Math.min(ST - callShort, Math.abs(callLong - callShort)) * multiplier;
     }
 
     // Put wing liability
     let putLoss = 0;
-    if (ST < putShort) {
-      putLoss = Math.min(putShort - ST, putShort - putLong) * multiplier;
+    if (includePut && ST < putShort) {
+      putLoss = Math.min(putShort - ST, Math.abs(putShort - putLong)) * multiplier;
     }
 
     const netPnL = totalCreditDollars - callLoss - putLoss;

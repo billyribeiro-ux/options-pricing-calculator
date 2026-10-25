@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { JournalEntry } from '../types';
-import { exportJournalJSON, importJournalJSON } from '../storage';
+import { JournalEntry, StrategyType, TradeStatus, ExecutionGrade } from '../types';
+import { exportJournalJSON, importJournalJSON, saveJournalEntry } from '../storage';
 import { Upload, Download, FileText, CheckCircle2, AlertCircle, X } from 'lucide-react';
 
 interface BrokerImportModalProps {
@@ -78,8 +78,77 @@ export const BrokerImportModal: React.FC<BrokerImportModalProps> = ({
           setIsError(true);
         }
       } else {
-        // Simple CSV parser for generic or broker formats
-        setStatusMessage(`Parsed CSV file ${file.name}. Format mapped to journal entries.`);
+        // Parse CSV rows (supports OptionsQuant CSV and generic Broker CSV columns)
+        const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+        if (lines.length < 2) {
+          setStatusMessage('CSV file contains no data rows.');
+          setIsError(true);
+          return;
+        }
+        const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
+        let importedCount = 0;
+
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',').map((c) => c.trim().replace(/^"|"$/g, ''));
+          if (cols.length < 3) continue;
+
+          const getCol = (names: string[], fallbackIdx: number) => {
+            const idx = headers.findIndex((h) => names.some((n) => h.includes(n)));
+            return idx >= 0 && cols[idx] !== undefined ? cols[idx] : cols[fallbackIdx] || '';
+          };
+
+          const rawSym = getCol(['symbol', 'ticker', 'underlying'], 2).toUpperCase() || 'SPY';
+          const rawDate = getCol(['date', 'entry', 'time'], 1) || new Date().toISOString().split('T')[0];
+          const rawStrat = getCol(['strategy', 'type', 'spread'], 3).toLowerCase() as StrategyType;
+          const rawStatus = getCol(['status'], 4).toLowerCase() as TradeStatus;
+          const rawPnL = parseFloat(getCol(['pnl', 'profit', 'realized'], 5)) || 0;
+          const rawCredit = parseFloat(getCol(['credit', 'price', 'premium'], 6)) || 0.75;
+          const rawRisk = parseFloat(getCol(['risk', 'margin'], 7)) || 425;
+          const rawGrade = (getCol(['grade'], 8).toUpperCase() || 'A') as ExecutionGrade;
+          const rawRules = getCol(['rules'], 9).toUpperCase() !== 'NO';
+          const rawNotes = getCol(['notes', 'thesis', 'description'], 10) || `Imported from ${file.name}`;
+
+          const entry: JournalEntry = {
+            id: `csv-${Date.now()}-${i}`,
+            entryDate: rawDate.split('T')[0],
+            exitDate: rawStatus === 'open' ? undefined : rawDate.split('T')[0],
+            symbol: rawSym,
+            strategyType: rawStrat || 'iron-condor',
+            status: rawStatus === 'open' ? 'open' : 'closed',
+            legs: [
+              {
+                id: `csv-leg-${i}`,
+                type: 'put',
+                position: 'sell',
+                strike: 500,
+                entryPrice: rawCredit,
+                contracts: 5,
+                status: rawStatus === 'open' ? 'open' : 'closed'
+              }
+            ],
+            adjustments: [],
+            netCreditOrDebitPerShare: rawCredit,
+            totalPremiumDollars: rawCredit * 500,
+            feesAndCommissions: 3.25,
+            realizedPnL: rawStatus === 'open' ? undefined : rawPnL,
+            maxRiskDollars: rawRisk,
+            returnOnRisk: rawRisk > 0 ? rawPnL / rawRisk : 0,
+            psychology: {
+              confidence: 8,
+              mindsetTags: ['disciplined'],
+              rulesFollowed: rawRules,
+              planAdherenceScore: rawRules ? 100 : 70,
+              executionGrade: ['A+', 'A', 'B+', 'B', 'C', 'D', 'F'].includes(rawGrade) ? rawGrade : 'A'
+            },
+            thesisNotes: rawNotes,
+            tags: ['csv-import']
+          };
+          saveJournalEntry(entry);
+          importedCount++;
+        }
+
+        onReloadEntries();
+        setStatusMessage(`Imported ${importedCount} trade(s) from ${file.name} into journal!`);
         setIsError(false);
       }
     };

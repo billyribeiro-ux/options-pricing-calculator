@@ -1,22 +1,31 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { IronCondorEvaluation, UnderlyingParams } from '../../quant/types';
 import { blackScholes } from '../../quant/blackScholes';
+import { formatCurrency } from '../../utils/formatters';
+import { CameraPreset } from './SceneContainer';
 
 interface PayoffSurface3DProps {
   condorEval: IronCondorEvaluation;
   params: UnderlyingParams;
   wireframe: boolean;
   autoRotate: boolean;
+  cameraPreset?: CameraPreset;
 }
 
 export const PayoffSurface3D: React.FC<PayoffSurface3DProps> = ({
   condorEval,
   params,
   wireframe,
-  autoRotate
+  autoRotate,
+  cameraPreset = 'iso'
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
+  const [hoverInfo, setHoverInfo] = useState<{
+    price: number;
+    dteRemaining: number;
+    pnl: number;
+  } | null>(null);
 
   const S0 = params.spotPrice;
   const maxDte = Math.max(1, params.dte);
@@ -30,6 +39,9 @@ export const PayoffSurface3D: React.FC<PayoffSurface3DProps> = ({
   const ps = condorEval.putSpread.shortStrike;
   const pl = condorEval.putSpread.longStrike;
 
+  const includeCall = condorEval.mode === 'iron-condor' || condorEval.mode === 'call-spread';
+  const includePut = condorEval.mode === 'iron-condor' || condorEval.mode === 'put-spread';
+
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
@@ -42,7 +54,6 @@ export const PayoffSurface3D: React.FC<PayoffSurface3DProps> = ({
     scene.background = new THREE.Color(0x111318);
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.set(35, 25, 45);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
@@ -58,8 +69,8 @@ export const PayoffSurface3D: React.FC<PayoffSurface3DProps> = ({
     scene.add(dirLight);
 
     // 3. Grid bounds
-    const xSegments = 40; // Price steps
-    const ySegments = 25; // Time steps
+    const xSegments = 48; // Price steps
+    const ySegments = 30; // Time steps
 
     const range = S0 * sigma * Math.sqrt(maxDte / 365) * 3.0;
     const minPrice = S0 - range;
@@ -68,12 +79,22 @@ export const PayoffSurface3D: React.FC<PayoffSurface3DProps> = ({
     const geometry = new THREE.PlaneGeometry(50, 40, xSegments, ySegments);
     geometry.rotateX(-Math.PI / 2); // Lay horizontal
 
-    // Calculate Z (height = PnL) and vertex colors
+    // Calculate Y (height = PnL) and vertex colors
     const posAttr = geometry.attributes.position;
     const colors: number[] = [];
 
     const maxAbsPnL = Math.max(condorEval.maxGain, condorEval.maxLoss, 1);
     const heightScale = 12 / maxAbsPnL;
+
+    const computePnL = (price: number, dteRem: number): number => {
+      const T = Math.max(0.0005, dteRem / 365);
+      const sc = includeCall ? blackScholes('call', price, cs, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
+      const lc = includeCall ? blackScholes('call', price, cl, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
+      const sp = includePut ? blackScholes('put', price, ps, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
+      const lp = includePut ? blackScholes('put', price, pl, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
+      const currentCost = (-sc + lc - sp + lp) * multiplier;
+      return totalCredit + currentCost;
+    };
 
     for (let i = 0; i < posAttr.count; i++) {
       const vx = posAttr.getX(i);
@@ -83,26 +104,18 @@ export const PayoffSurface3D: React.FC<PayoffSurface3DProps> = ({
       const price = minPrice + ((vx + 25) / 50) * (maxPrice - minPrice);
       // Map plane Z [-20, 20] to Days to Expiry [0, maxDte]
       const dteRemaining = Math.max(0.001, ((vz + 20) / 40) * maxDte);
-      const T = dteRemaining / 365;
 
-      // Calculate Black-Scholes PnL at this price and time
-      const sc = blackScholes('call', price, cs, T, sigma, params.riskFreeRate, params.dividendYield).price;
-      const lc = blackScholes('call', price, cl, T, sigma, params.riskFreeRate, params.dividendYield).price;
-      const sp = blackScholes('put', price, ps, T, sigma, params.riskFreeRate, params.dividendYield).price;
-      const lp = blackScholes('put', price, pl, T, sigma, params.riskFreeRate, params.dividendYield).price;
-
-      const currentCost = (-sc + lc - sp + lp) * multiplier;
-      const pnl = totalCredit + currentCost;
+      const pnl = computePnL(price, dteRemaining);
 
       // Set height
       posAttr.setY(i, pnl * heightScale);
 
       // Color mapping: Green for profit, Red for loss
       if (pnl >= 0) {
-        const t = Math.min(1, pnl / condorEval.maxGain);
+        const t = Math.min(1, pnl / Math.max(1, condorEval.maxGain));
         colors.push(0.0, 0.53 + 0.3 * t, 0.35 + 0.2 * t);
       } else {
-        const t = Math.min(1, -pnl / condorEval.maxLoss);
+        const t = Math.min(1, -pnl / Math.max(1, condorEval.maxLoss));
         colors.push(0.87 + 0.1 * t, 0.21 * (1 - t), 0.05);
       }
     }
@@ -121,26 +134,36 @@ export const PayoffSurface3D: React.FC<PayoffSurface3DProps> = ({
     const mesh = new THREE.Mesh(geometry, material);
     scene.add(mesh);
 
-    // Grid Floor
+    // Hover probe sphere
+    const probeGeo = new THREE.SphereGeometry(0.7, 16, 16);
+    const probeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const probeMesh = new THREE.Mesh(probeGeo, probeMat);
+    probeMesh.visible = false;
+    scene.add(probeMesh);
+
+    // Grid Floor (Zero P&L reference plane)
     const gridHelper = new THREE.GridHelper(50, 20, 0x00629e, 0x333a42);
-    gridHelper.position.y = -0.1;
+    gridHelper.position.y = 0;
     scene.add(gridHelper);
 
     // Interactive Orbit simulation
     let isDragging = false;
     let prevMouseX = 0;
     let prevMouseY = 0;
-    let theta = Math.PI / 4;
-    let phi = Math.PI / 6;
+    let theta = cameraPreset === 'top' ? 0 : cameraPreset === 'front' ? 0 : Math.PI / 4;
+    let phi = cameraPreset === 'top' ? Math.PI / 2.05 : cameraPreset === 'front' ? 0.15 : Math.PI / 6;
     let radius = 60;
 
     const updateCamera = () => {
       camera.position.x = radius * Math.sin(theta) * Math.cos(phi);
       camera.position.y = radius * Math.sin(phi);
       camera.position.z = radius * Math.cos(theta) * Math.cos(phi);
-      camera.lookAt(0, 2, 0);
+      camera.lookAt(0, 0, 0);
     };
     updateCamera();
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
 
     const onMouseDown = (e: MouseEvent) => {
       isDragging = true;
@@ -149,6 +172,31 @@ export const PayoffSurface3D: React.FC<PayoffSurface3DProps> = ({
     };
 
     const onMouseMove = (e: MouseEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      if (
+        e.clientX >= rect.left &&
+        e.clientX <= rect.right &&
+        e.clientY >= rect.top &&
+        e.clientY <= rect.bottom
+      ) {
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const hits = raycaster.intersectObject(mesh);
+        if (hits.length > 0) {
+          const pt = hits[0].point;
+          probeMesh.position.copy(pt);
+          probeMesh.visible = true;
+          const hoveredPrice = minPrice + ((pt.x + 25) / 50) * (maxPrice - minPrice);
+          const hoveredDte = Math.max(0, ((pt.z + 20) / 40) * maxDte);
+          const hoveredPnL = computePnL(hoveredPrice, hoveredDte);
+          setHoverInfo({ price: hoveredPrice, dteRemaining: hoveredDte, pnl: hoveredPnL });
+        } else {
+          probeMesh.visible = false;
+          setHoverInfo(null);
+        }
+      }
+
       if (!isDragging) return;
       const dx = e.clientX - prevMouseX;
       const dy = e.clientY - prevMouseY;
@@ -156,7 +204,7 @@ export const PayoffSurface3D: React.FC<PayoffSurface3DProps> = ({
       prevMouseY = e.clientY;
 
       theta -= dx * 0.008;
-      phi = Math.max(0.1, Math.min(Math.PI / 2.2, phi + dy * 0.008));
+      phi = Math.max(0.1, Math.min(Math.PI / 2.05, phi + dy * 0.008));
       updateCamera();
     };
 
@@ -210,27 +258,64 @@ export const PayoffSurface3D: React.FC<PayoffSurface3DProps> = ({
       }
       geometry.dispose();
       material.dispose();
+      probeGeo.dispose();
+      probeMat.dispose();
       renderer.dispose();
     };
-  }, [condorEval, params, wireframe, autoRotate, cs, cl, ps, pl, S0, maxDte, sigma, totalCredit, multiplier]);
+  }, [condorEval, params, wireframe, autoRotate, cameraPreset, cs, cl, ps, pl, S0, maxDte, sigma, totalCredit, multiplier, includeCall, includePut]);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: 460 }}>
       <div ref={mountRef} style={{ width: '100%', height: '100%', borderRadius: 12, overflow: 'hidden' }} />
+
+      {hoverInfo && (
+        <div
+          className="md-card md-card--tonal"
+          style={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            padding: '10px 14px',
+            fontSize: 12,
+            pointerEvents: 'none',
+            boxShadow: 'var(--md-sys-elevation-level2)',
+            background: 'rgba(17, 19, 24, 0.88)',
+            color: '#e2e2e8',
+            border: '1px solid rgba(255,255,255,0.12)'
+          }}
+        >
+          <div className="label-small" style={{ color: '#94ccff', marginBottom: 4 }}>3D SURFACE PROBE</div>
+          <div>Underlying Price: <span className="mono-small">${hoverInfo.price.toFixed(2)}</span></div>
+          <div>Time Remaining: <span className="mono-small">{hoverInfo.dteRemaining.toFixed(1)} DTE</span></div>
+          <div>
+            Theoretical P&L:{' '}
+            <span
+              className="mono-small"
+              style={{
+                fontWeight: 700,
+                color: hoverInfo.pnl >= 0 ? '#57d9a3' : '#ff8f73'
+              }}
+            >
+              {hoverInfo.pnl >= 0 ? '+' : ''}{formatCurrency(hoverInfo.pnl)}
+            </span>
+          </div>
+        </div>
+      )}
+
       <div
         style={{
           position: 'absolute',
           bottom: 12,
           left: 12,
           padding: '6px 12px',
-          background: 'rgba(0,0,0,0.6)',
+          background: 'rgba(0,0,0,0.68)',
           borderRadius: 8,
           fontSize: 11,
           color: '#e2e2e8',
           pointerEvents: 'none'
         }}
       >
-        Left Click + Drag to Orbit | Scroll to Zoom | Green: Profit territory, Red: Loss territory
+        Hover to Probe Surface | Drag to Orbit | Scroll to Zoom | X: Underlying Price ($), Z: DTE, Y: P&L ($)
       </div>
     </div>
   );

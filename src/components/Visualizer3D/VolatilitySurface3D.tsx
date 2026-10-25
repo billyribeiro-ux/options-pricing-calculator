@@ -1,19 +1,29 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { UnderlyingParams } from '../../quant/types';
+import { CameraPreset } from './SceneContainer';
 
 interface VolatilitySurface3DProps {
   params: UnderlyingParams;
   wireframe: boolean;
   autoRotate: boolean;
+  cameraPreset?: CameraPreset;
 }
 
 export const VolatilitySurface3D: React.FC<VolatilitySurface3DProps> = ({
   params,
   wireframe,
-  autoRotate
+  autoRotate,
+  cameraPreset = 'iso'
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
+  const [hoverInfo, setHoverInfo] = useState<{
+    strike: number;
+    moneynessPct: number;
+    days: number;
+    iv: number;
+  } | null>(null);
+
   const S0 = params.spotPrice;
   const atmIV = params.atmIV;
 
@@ -28,7 +38,6 @@ export const VolatilitySurface3D: React.FC<VolatilitySurface3DProps> = ({
     scene.background = new THREE.Color(0x111318);
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.set(30, 25, 40);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
@@ -42,8 +51,8 @@ export const VolatilitySurface3D: React.FC<VolatilitySurface3DProps> = ({
     dirLight.position.set(20, 30, 20);
     scene.add(dirLight);
 
-    const xSegments = 30; // Strike steps
-    const ySegments = 20; // Expiry steps
+    const xSegments = 36; // Strike steps
+    const ySegments = 24; // Expiry steps
 
     const geometry = new THREE.PlaneGeometry(50, 40, xSegments, ySegments);
     geometry.rotateX(-Math.PI / 2);
@@ -51,20 +60,21 @@ export const VolatilitySurface3D: React.FC<VolatilitySurface3DProps> = ({
     const posAttr = geometry.attributes.position;
     const colors: number[] = [];
 
+    const evalSkewIV = (vx: number, vz: number) => {
+      const moneyness = (vx / 25) * 0.25; // -25% to +25% OTM
+      const days = 10 + ((vz + 20) / 40) * 80;
+      const skew = -0.35 * moneyness + 0.6 * moneyness * moneyness;
+      const termStructure = 0.04 * Math.log(days / 10);
+      const iv = Math.max(0.08, atmIV + skew + termStructure);
+      return { moneyness, days, iv };
+    };
+
     // Model classic equity volatility skew (smirk: puts have higher IV than calls, plus term structure)
     for (let i = 0; i < posAttr.count; i++) {
       const vx = posAttr.getX(i);
       const vz = posAttr.getZ(i);
 
-      // Moneyness log(K / S0)
-      const moneyness = (vx / 25) * 0.25; // -25% to +25% OTM
-      // Expiration (10 days to 90 days)
-      const days = 10 + ((vz + 20) / 40) * 80;
-
-      // SVI-like skew formula: ATM IV + Put Skew + Term structure tilt
-      const skew = -0.35 * moneyness + 0.6 * moneyness * moneyness;
-      const termStructure = 0.04 * Math.log(days / 10);
-      const iv = Math.max(0.08, atmIV + skew + termStructure);
+      const { iv } = evalSkewIV(vx, vz);
 
       // Set height
       posAttr.setY(i, (iv - atmIV) * 50);
@@ -88,6 +98,12 @@ export const VolatilitySurface3D: React.FC<VolatilitySurface3DProps> = ({
     const mesh = new THREE.Mesh(geometry, material);
     scene.add(mesh);
 
+    const probeGeo = new THREE.SphereGeometry(0.7, 16, 16);
+    const probeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const probeMesh = new THREE.Mesh(probeGeo, probeMat);
+    probeMesh.visible = false;
+    scene.add(probeMesh);
+
     const gridHelper = new THREE.GridHelper(50, 20, 0x4c9aff, 0x222a35);
     gridHelper.position.y = -2;
     scene.add(gridHelper);
@@ -96,8 +112,8 @@ export const VolatilitySurface3D: React.FC<VolatilitySurface3DProps> = ({
     let isDragging = false;
     let prevMouseX = 0;
     let prevMouseY = 0;
-    let theta = Math.PI / 4;
-    let phi = Math.PI / 5;
+    let theta = cameraPreset === 'top' ? 0 : cameraPreset === 'front' ? 0 : Math.PI / 4;
+    let phi = cameraPreset === 'top' ? Math.PI / 2.05 : cameraPreset === 'front' ? 0.15 : Math.PI / 5;
     let radius = 60;
 
     const updateCamera = () => {
@@ -108,6 +124,9 @@ export const VolatilitySurface3D: React.FC<VolatilitySurface3DProps> = ({
     };
     updateCamera();
 
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
     const onMouseDown = (e: MouseEvent) => {
       isDragging = true;
       prevMouseX = e.clientX;
@@ -115,13 +134,41 @@ export const VolatilitySurface3D: React.FC<VolatilitySurface3DProps> = ({
     };
 
     const onMouseMove = (e: MouseEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      if (
+        e.clientX >= rect.left &&
+        e.clientX <= rect.right &&
+        e.clientY >= rect.top &&
+        e.clientY <= rect.bottom
+      ) {
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const hits = raycaster.intersectObject(mesh);
+        if (hits.length > 0) {
+          const pt = hits[0].point;
+          probeMesh.position.copy(pt);
+          probeMesh.visible = true;
+          const { moneyness, days, iv } = evalSkewIV(pt.x, pt.z);
+          setHoverInfo({
+            strike: S0 * (1 + moneyness),
+            moneynessPct: moneyness * 100,
+            days,
+            iv
+          });
+        } else {
+          probeMesh.visible = false;
+          setHoverInfo(null);
+        }
+      }
+
       if (!isDragging) return;
       const dx = e.clientX - prevMouseX;
       const dy = e.clientY - prevMouseY;
       prevMouseX = e.clientX;
       prevMouseY = e.clientY;
       theta -= dx * 0.008;
-      phi = Math.max(0.1, Math.min(Math.PI / 2.2, phi + dy * 0.008));
+      phi = Math.max(0.1, Math.min(Math.PI / 2.05, phi + dy * 0.008));
       updateCamera();
     };
 
@@ -171,27 +218,53 @@ export const VolatilitySurface3D: React.FC<VolatilitySurface3DProps> = ({
       }
       geometry.dispose();
       material.dispose();
+      probeGeo.dispose();
+      probeMat.dispose();
       renderer.dispose();
     };
-  }, [atmIV, wireframe, autoRotate, S0]);
+  }, [atmIV, wireframe, autoRotate, cameraPreset, S0]);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: 460 }}>
       <div ref={mountRef} style={{ width: '100%', height: '100%', borderRadius: 12, overflow: 'hidden' }} />
+
+      {hoverInfo && (
+        <div
+          className="md-card md-card--tonal"
+          style={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            padding: '10px 14px',
+            fontSize: 12,
+            pointerEvents: 'none',
+            boxShadow: 'var(--md-sys-elevation-level2)',
+            background: 'rgba(17, 19, 24, 0.88)',
+            color: '#e2e2e8',
+            border: '1px solid rgba(255,255,255,0.12)'
+          }}
+        >
+          <div className="label-small" style={{ color: '#94ccff', marginBottom: 4 }}>SVI VOLATILITY PROBE</div>
+          <div>Strike: <span className="mono-small">${hoverInfo.strike.toFixed(1)} ({hoverInfo.moneynessPct >= 0 ? '+' : ''}{hoverInfo.moneynessPct.toFixed(1)}%)</span></div>
+          <div>Term Horizon: <span className="mono-small">{hoverInfo.days.toFixed(0)} DTE</span></div>
+          <div>Implied Vol: <span className="mono-small" style={{ color: '#ffb4ab', fontWeight: 700 }}>{(hoverInfo.iv * 100).toFixed(2)}%</span></div>
+        </div>
+      )}
+
       <div
         style={{
           position: 'absolute',
           bottom: 12,
           left: 12,
           padding: '6px 12px',
-          background: 'rgba(0,0,0,0.6)',
+          background: 'rgba(0,0,0,0.68)',
           borderRadius: 8,
           fontSize: 11,
           color: '#e2e2e8',
           pointerEvents: 'none'
         }}
       >
-        Left Click + Drag to Orbit | X: Strike Moneyness | Z: Expiration Term Structure | Y: Implied Volatility
+        Hover to Probe Skew | Drag to Orbit | X: Strike Moneyness | Z: Expiration Term Structure | Y: Implied Volatility
       </div>
     </div>
   );

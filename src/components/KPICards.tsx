@@ -10,6 +10,13 @@ interface KPICardsProps {
 export const KPICards: React.FC<KPICardsProps> = ({ condorEval }) => {
   const isExactEVProfitable = condorEval.exactCombinedEV >= 0;
 
+  const breakevenDisplay =
+    condorEval.mode === 'call-spread'
+      ? `< $${condorEval.breakevenHigh.toFixed(2)}`
+      : condorEval.mode === 'put-spread'
+        ? `> $${condorEval.breakevenLow.toFixed(2)}`
+        : `$${condorEval.breakevenLow.toFixed(2)} — $${condorEval.breakevenHigh.toFixed(2)}`;
+
   return (
     <div className="grid-kpis">
       {/* 1. Net Credit */}
@@ -36,7 +43,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ condorEval }) => {
           {formatPercent(condorEval.probMaxProfit)}
         </div>
         <div className="body-small" style={{ marginTop: 4, color: 'var(--md-sys-color-on-surface-variant)' }}>
-          Breakevens: <span className="mono-small">${condorEval.breakevenLow.toFixed(2)}</span> — <span className="mono-small">${condorEval.breakevenHigh.toFixed(2)}</span>
+          Breakevens: <span className="mono-small">{breakevenDisplay}</span>
         </div>
       </div>
 
@@ -77,7 +84,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ condorEval }) => {
           <span className="label-small" style={{ color: 'var(--md-sys-color-outline)' }}>NET POSITION GREEKS</span>
           <Compass size={16} color="var(--md-sys-color-outline)" />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 13 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, fontSize: 12 }}>
           <div>
             <span style={{ color: 'var(--md-sys-color-outline)' }}>Δ Delta: </span>
             <span className="mono-small">{formatDelta(condorEval.greeks.delta)}</span>
@@ -89,16 +96,24 @@ export const KPICards: React.FC<KPICardsProps> = ({ condorEval }) => {
           <div>
             <span style={{ color: 'var(--md-sys-color-outline)' }}>Θ Theta: </span>
             <span className="mono-small" style={{ color: condorEval.greeks.theta >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)' }}>
-              +{formatCurrency(condorEval.greeks.theta, 1)}/d
+              {condorEval.greeks.theta >= 0 ? '+' : ''}{formatCurrency(condorEval.greeks.theta, 1)}/d
             </span>
           </div>
           <div>
             <span style={{ color: 'var(--md-sys-color-outline)' }}>ν Vega: </span>
             <span className="mono-small">{formatCurrency(condorEval.greeks.vega, 1)}/%</span>
           </div>
+          <div>
+            <span style={{ color: 'var(--md-sys-color-outline)' }}>Vanna: </span>
+            <span className="mono-small">{condorEval.greeks.vanna.toFixed(2)}</span>
+          </div>
+          <div>
+            <span style={{ color: 'var(--md-sys-color-outline)' }}>Volga: </span>
+            <span className="mono-small">{condorEval.greeks.volga.toFixed(2)}</span>
+          </div>
         </div>
         <div className="body-small" style={{ marginTop: 4, color: 'var(--md-sys-color-on-surface-variant)' }}>
-          RoR: <span className="mono-small">{formatPercent(condorEval.returnOnRisk)}</span> | Reward/Risk: <span className="mono-small">{formatMultiplier(condorEval.exactRewardRisk)}</span>
+          RoR: <span className="mono-small">{formatPercent(condorEval.returnOnRisk)}</span> | Kelly: <span className="mono-small">{formatPercent(condorEval.kellyFraction)}</span> | R/R: <span className="mono-small">{formatMultiplier(condorEval.exactRewardRisk)}</span>
         </div>
       </div>
     </div>

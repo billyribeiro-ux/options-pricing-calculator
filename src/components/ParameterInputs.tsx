@@ -116,6 +116,69 @@ export const ParameterInputs: React.FC<ParameterInputsProps> = ({
             />
           </div>
         </div>
+
+        {/* ATM Straddle Ask (Row 15) */}
+        <div className="md-field-group">
+          <label className="md-field-label">ATM Straddle Ask</label>
+          <div className="md-input-wrapper">
+            <span className="md-input-prefix">$</span>
+            <input
+              type="number"
+              step="0.05"
+              min="0"
+              className="md-input"
+              value={params.atmStraddleAsk ?? 6.80}
+              onChange={(e) => onChangeParams({ atmStraddleAsk: parseFloat(e.target.value) || 0 })}
+            />
+          </div>
+        </div>
+
+        {/* Straddle Factor */}
+        <div className="md-field-group">
+          <label className="md-field-label">Straddle Factor</label>
+          <div className="md-input-wrapper">
+            <input
+              type="number"
+              step="0.05"
+              min="0.1"
+              max="2.0"
+              className="md-input"
+              value={params.straddleFactor ?? 0.85}
+              onChange={(e) => onChangeParams({ straddleFactor: parseFloat(e.target.value) || 0.85 })}
+            />
+            <span className="md-input-suffix">×</span>
+          </div>
+        </div>
+
+        {/* Risk-Free Rate */}
+        <div className="md-field-group">
+          <label className="md-field-label">Risk-Free Rate (r)</label>
+          <div className="md-input-wrapper">
+            <input
+              type="number"
+              step="0.25"
+              className="md-input"
+              value={Number((params.riskFreeRate * 100).toFixed(2))}
+              onChange={(e) => onChangeParams({ riskFreeRate: (parseFloat(e.target.value) || 0) / 100 })}
+            />
+            <span className="md-input-suffix">%</span>
+          </div>
+        </div>
+
+        {/* Dividend Yield */}
+        <div className="md-field-group">
+          <label className="md-field-label">Dividend Yield (q)</label>
+          <div className="md-input-wrapper">
+            <input
+              type="number"
+              step="0.1"
+              className="md-input"
+              value={Number((params.dividendYield * 100).toFixed(2))}
+              onChange={(e) => onChangeParams({ dividendYield: (parseFloat(e.target.value) || 0) / 100 })}
+            />
+            <span className="md-input-suffix">%</span>
+          </div>
+        </div>
       </div>
 
       {/* Volatility Bands Cards */}
@@ -130,7 +193,7 @@ export const ParameterInputs: React.FC<ParameterInputsProps> = ({
             ±{formatCurrency(volBands.oneStdDevMove)}
           </div>
           <div className="body-small" style={{ marginTop: 2, color: 'var(--md-sys-color-on-surface-variant)' }}>
-            Range: <span className="mono-small">{formatCurrency(volBands.lower1Sigma, 0)}</span> — <span className="mono-small">{formatCurrency(volBands.upper1Sigma, 0)}</span>
+            Range: <span className="mono-small">{formatCurrency(volBands.lower1Sigma, 2)}</span> — <span className="mono-small">{formatCurrency(volBands.upper1Sigma, 2)}</span>
           </div>
         </div>
 
@@ -144,7 +207,7 @@ export const ParameterInputs: React.FC<ParameterInputsProps> = ({
             ±{formatCurrency(volBands.twoStdDevMove)}
           </div>
           <div className="body-small" style={{ marginTop: 2, color: 'var(--md-sys-color-on-surface-variant)' }}>
-            Range: <span className="mono-small">{formatCurrency(volBands.lower2Sigma, 0)}</span> — <span className="mono-small">{formatCurrency(volBands.upper2Sigma, 0)}</span>
+            Range: <span className="mono-small">{formatCurrency(volBands.lower2Sigma, 2)}</span> — <span className="mono-small">{formatCurrency(volBands.upper2Sigma, 2)}</span>
           </div>
         </div>
 
@@ -158,7 +221,7 @@ export const ParameterInputs: React.FC<ParameterInputsProps> = ({
             ±{formatCurrency(volBands.marketMakerMove)}
           </div>
           <div className="body-small" style={{ marginTop: 2, color: 'var(--md-sys-color-on-surface-variant)' }}>
-            Straddle: <span className="mono-small">${formatNumber(params.atmStraddleAsk ?? 6.80)}</span> × <span className="mono-small">0.85x</span>
+            Straddle: <span className="mono-small">${formatNumber(params.atmStraddleAsk ?? 6.80)}</span> × <span className="mono-small">{(params.straddleFactor ?? 0.85).toFixed(2)}x</span> ({formatCurrency(params.spotPrice - volBands.marketMakerMove, 1)}–{formatCurrency(params.spotPrice + volBands.marketMakerMove, 1)})
           </div>
         </div>
       </div>

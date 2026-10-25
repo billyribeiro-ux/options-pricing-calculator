@@ -26,6 +26,9 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
   const ps = condorEval.putSpread.shortStrike;
   const pl = condorEval.putSpread.longStrike;
 
+  const includeCall = condorEval.mode === 'iron-condor' || condorEval.mode === 'call-spread';
+  const includePut = condorEval.mode === 'iron-condor' || condorEval.mode === 'put-spread';
+
   // Domain range: +/- 3.5 std dev
   const range = S0 * sigma * Math.sqrt(T) * 3.5;
   const minPrice = Math.floor(S0 - range);
@@ -34,22 +37,22 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
   // Expiration PnL function
   const calcPnLExpiration = (S: number): number => {
     let callLoss = 0;
-    if (S > cs) {
-      callLoss = Math.min(S - cs, cl - cs) * multiplier;
+    if (includeCall && S > cs) {
+      callLoss = Math.min(S - cs, Math.abs(cl - cs)) * multiplier;
     }
     let putLoss = 0;
-    if (S < ps) {
-      putLoss = Math.min(ps - S, ps - pl) * multiplier;
+    if (includePut && S < ps) {
+      putLoss = Math.min(ps - S, Math.abs(ps - pl)) * multiplier;
     }
     return totalCredit - callLoss - putLoss;
   };
 
   // Today PnL function (Black-Scholes theoretical value today vs entry credit)
   const calcPnLToday = (S: number): number => {
-    const sc = blackScholes('call', S, cs, T, sigma, params.riskFreeRate, params.dividendYield).price;
-    const lc = blackScholes('call', S, cl, T, sigma, params.riskFreeRate, params.dividendYield).price;
-    const sp = blackScholes('put', S, ps, T, sigma, params.riskFreeRate, params.dividendYield).price;
-    const lp = blackScholes('put', S, pl, T, sigma, params.riskFreeRate, params.dividendYield).price;
+    const sc = includeCall ? blackScholes('call', S, cs, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
+    const lc = includeCall ? blackScholes('call', S, cl, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
+    const sp = includePut ? blackScholes('put', S, ps, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
+    const lp = includePut ? blackScholes('put', S, pl, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
 
     const currentCost = (-sc + lc - sp + lp) * multiplier;
     return totalCredit + currentCost;
@@ -188,10 +191,14 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
       ctx.fillText(`$${price}`, x, height - padBottom + 16);
     };
 
-    drawMarker(ps, 'Short Put', '#36b37e');
-    drawMarker(pl, 'Long Put', '#00875a');
-    drawMarker(cs, 'Short Call', '#ff5630');
-    drawMarker(cl, 'Long Call', '#de350b');
+    if (includePut) {
+      drawMarker(ps, 'Short Put', '#36b37e');
+      drawMarker(pl, 'Long Put', '#00875a');
+    }
+    if (includeCall) {
+      drawMarker(cs, 'Short Call', '#ff5630');
+      drawMarker(cl, 'Long Call', '#de350b');
+    }
     drawMarker(S0, 'Spot', '#4c9aff');
 
     // Y Axis Labels

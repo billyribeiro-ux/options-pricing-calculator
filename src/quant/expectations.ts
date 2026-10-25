@@ -112,6 +112,7 @@ export function evaluateSpread(
 
 /**
  * Builds the dynamic Strike Matrix (matching rows 21-31 for Calls, and rows 35-45 for Puts)
+ * Evaluates full spread metrics across all candidate strikes while marking the active selected strike.
  */
 export function buildStrikeMatrix(
   type: OptionType,
@@ -123,52 +124,43 @@ export function buildStrikeMatrix(
 ): StrikeMatrixRow[] {
   const S0 = params.spotPrice;
   const gap = params.strikeGap;
+  const spreadWidth = Math.abs(selectedLongStrike - selectedShortStrike) || gap;
   const rows: StrikeMatrixRow[] = [];
 
-  // Anchor around spot price or selected strike
-  const anchorStrike = type === 'call'
-    ? Math.round(S0 / gap) * gap
-    : Math.round(S0 / gap) * gap;
+  // Anchor around spot price rounded to nearest strike gap
+  const anchorStrike = Math.round(S0 / gap) * gap;
 
   for (let i = 0; i < count; i++) {
     const strike = type === 'call'
       ? anchorStrike + i * gap
       : anchorStrike - i * gap;
 
+    const isSelected = strike === selectedShortStrike;
+    const rowLongStrike = isSelected
+      ? selectedLongStrike
+      : type === 'call'
+        ? strike + spreadWidth
+        : strike - spreadWidth;
+
     const probITM = probITMDriftless(type, S0, strike, params.atmIV, params.dte);
     const probTouch = Math.min(1, 2 * probITM);
 
-    const isSelected = strike === selectedShortStrike;
-    let excelGain: number | null = null;
-    let excelPain: number | null = null;
-    let excelEV: number | null = null;
-    let excelRewardRisk: number | null = null;
-    let excelPrice1to1: number | null = null;
-    let exactEV: number | null = null;
-    let exactPrice1to1: number | null = null;
-
-    if (isSelected) {
-      const evalResult = evaluateSpread(type, selectedShortStrike, selectedLongStrike, netCredit, params);
-      excelGain = evalResult.trueMaxGain * (1 - probITM);
-      excelPain = evalResult.excelMaxPain;
-      excelEV = evalResult.excelEV;
-      excelRewardRisk = evalResult.excelRewardRisk;
-      excelPrice1to1 = evalResult.excelPrice1to1;
-      exactEV = evalResult.exactEV;
-      exactPrice1to1 = evalResult.exactPrice1to1;
-    }
+    const evalResult = evaluateSpread(type, strike, rowLongStrike, netCredit, params);
 
     rows.push({
       strike,
+      longStrike: rowLongStrike,
+      isSelected,
       probITM,
       probTouch,
-      excelGain,
-      excelPain,
-      excelEV,
-      excelRewardRisk,
-      excelPrice1to1,
-      exactEV,
-      exactPrice1to1
+      excelGain: evalResult.trueMaxGain * (1 - probITM),
+      excelPain: evalResult.excelMaxPain,
+      excelEV: evalResult.excelEV,
+      excelRewardRisk: evalResult.excelRewardRisk,
+      excelPrice1to1: evalResult.excelPrice1to1,
+      exactEV: evalResult.exactEV,
+      exactRewardRisk: evalResult.exactRewardRisk,
+      exactPrice1to1: evalResult.exactPrice1to1
     });
   }
 

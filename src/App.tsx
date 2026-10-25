@@ -120,9 +120,10 @@ export const App: React.FC = () => {
       putShort,
       putLong,
       putCredit,
-      params
+      params,
+      strategyMode
     );
-  }, [callShort, callLong, callCredit, putShort, putLong, putCredit, params]);
+  }, [callShort, callLong, callCredit, putShort, putLong, putCredit, params, strategyMode]);
 
   return (
     <div className="app-shell">

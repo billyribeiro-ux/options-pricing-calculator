@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { PayoffSurface3D } from './PayoffSurface3D';
 import { VolatilitySurface3D } from './VolatilitySurface3D';
 import { IronCondorEvaluation, UnderlyingParams } from '../../quant/types';
-import { Box, Layers, Play, Pause } from 'lucide-react';
+import { Box, Layers, Play, Pause, Eye } from 'lucide-react';
+
+export type CameraPreset = 'iso' | 'top' | 'front';
 
 interface SceneContainerProps {
   condorEval: IronCondorEvaluation;
@@ -13,11 +15,12 @@ export const SceneContainer: React.FC<SceneContainerProps> = ({ condorEval, para
   const [activeTab, setActiveTab] = useState<'payoff' | 'volatility'>('payoff');
   const [wireframe, setWireframe] = useState<boolean>(false);
   const [autoRotate, setAutoRotate] = useState<boolean>(true);
+  const [cameraPreset, setCameraPreset] = useState<CameraPreset>('iso');
 
   return (
     <div className="md-card md-card--elevated" style={{ height: '100%', minHeight: 520, display: 'flex', flexDirection: 'column' }}>
-      <div className="md-card__header" style={{ marginBottom: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="md-card__header" style={{ marginBottom: 12, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <h3 className="md-card__title">
             <Box size={18} color="var(--md-sys-color-primary)" />
             GPU-Accelerated 3D Interactive Graphics
@@ -38,7 +41,32 @@ export const SceneContainer: React.FC<SceneContainerProps> = ({ condorEval, para
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div className="md-segmented-button">
+            <button
+              className={`md-segmented-button__segment ${cameraPreset === 'iso' ? 'md-segmented-button__segment--active' : ''}`}
+              onClick={() => { setCameraPreset('iso'); setAutoRotate(false); }}
+              title="Isometric 3D View"
+            >
+              <Eye size={12} style={{ marginRight: 4 }} />
+              3D Iso
+            </button>
+            <button
+              className={`md-segmented-button__segment ${cameraPreset === 'top' ? 'md-segmented-button__segment--active' : ''}`}
+              onClick={() => { setCameraPreset('top'); setAutoRotate(false); }}
+              title="Top-Down Contour View"
+            >
+              Top Contour
+            </button>
+            <button
+              className={`md-segmented-button__segment ${cameraPreset === 'front' ? 'md-segmented-button__segment--active' : ''}`}
+              onClick={() => { setCameraPreset('front'); setAutoRotate(false); }}
+              title="Front Expiration Profile"
+            >
+              Expiry Profile
+            </button>
+          </div>
+
           <button
             className={`md-button ${wireframe ? 'md-button--tonal' : 'md-button--outlined'}`}
             onClick={() => setWireframe(!wireframe)}
@@ -66,12 +94,14 @@ export const SceneContainer: React.FC<SceneContainerProps> = ({ condorEval, para
             params={params}
             wireframe={wireframe}
             autoRotate={autoRotate}
+            cameraPreset={cameraPreset}
           />
         ) : (
           <VolatilitySurface3D
             params={params}
             wireframe={wireframe}
             autoRotate={autoRotate}
+            cameraPreset={cameraPreset}
           />
         )}
       </div>

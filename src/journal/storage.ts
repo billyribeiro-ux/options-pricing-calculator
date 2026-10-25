@@ -29,7 +29,7 @@ const INITIAL_SAMPLE_TRADES: JournalEntry[] = [
       dte: 10,
       expectedMove1Sigma: 20.10,
       expectedValueModel: 142.10,
-      greeks: { delta: -0.42, gamma: -0.012, theta: 48.5, vega: -84.2, rho: -3.1 }
+      greeks: { delta: -0.42, gamma: -0.012, theta: 48.5, vega: -84.2, rho: -3.1, vanna: 0.14, volga: -1.85 }
     },
     psychology: {
       confidence: 9,
@@ -68,7 +68,7 @@ const INITIAL_SAMPLE_TRADES: JournalEntry[] = [
       dte: 6,
       expectedMove1Sigma: 7.20,
       expectedValueModel: 95.00,
-      greeks: { delta: 12.5, gamma: -0.85, theta: 24.0, vega: -32.0, rho: 1.2 }
+      greeks: { delta: 12.5, gamma: -0.85, theta: 24.0, vega: -32.0, rho: 1.2, vanna: -0.45, volga: -0.92 }
     },
     psychology: {
       confidence: 8,
@@ -107,7 +107,7 @@ const INITIAL_SAMPLE_TRADES: JournalEntry[] = [
       dte: 7,
       expectedMove1Sigma: 6.80,
       expectedValueModel: -40.00,
-      greeks: { delta: -18.0, gamma: -1.2, theta: 35.0, vega: -45.0, rho: -2.0 }
+      greeks: { delta: -18.0, gamma: -1.2, theta: 35.0, vega: -45.0, rho: -2.0, vanna: 0.62, volga: -1.10 }
     },
     psychology: {
       confidence: 6,
@@ -148,7 +148,7 @@ const INITIAL_SAMPLE_TRADES: JournalEntry[] = [
       dte: 5,
       expectedMove1Sigma: 9.50,
       expectedValueModel: 180.00,
-      greeks: { delta: -2.1, gamma: -0.04, theta: 62.0, vega: -95.0, rho: -1.5 }
+      greeks: { delta: -2.1, gamma: -0.04, theta: 62.0, vega: -95.0, rho: -1.5, vanna: 0.08, volga: -2.15 }
     },
     psychology: {
       confidence: 9,
@@ -185,7 +185,7 @@ const INITIAL_SAMPLE_TRADES: JournalEntry[] = [
       dte: 14,
       expectedMove1Sigma: 12.80,
       expectedValueModel: 110.00,
-      greeks: { delta: 14.2, gamma: -0.65, theta: 18.5, vega: -28.0, rho: 1.5 }
+      greeks: { delta: 14.2, gamma: -0.65, theta: 18.5, vega: -28.0, rho: 1.5, vanna: -0.32, volga: -0.78 }
     },
     psychology: {
       confidence: 8,

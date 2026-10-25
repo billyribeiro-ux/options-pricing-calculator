@@ -1,4 +1,4 @@
-import { JournalEntry, PerformanceKPIs, DailyJournalSummary, StrategyType } from './types';
+import { JournalEntry, PerformanceKPIs, DailyJournalSummary, StrategyType, MindsetTag } from './types';
 
 export function calculatePerformanceKPIs(entries: JournalEntry[]): PerformanceKPIs {
   const closedTrades = entries.filter((e) => e.status === 'closed' && e.realizedPnL !== undefined);
@@ -217,4 +217,115 @@ export function calculateStrategyBreakdown(entries: JournalEntry[]): {
   });
 
   return results.sort((a, b) => b.totalPnL - a.totalPnL);
+}
+
+/**
+ * Dynamically computes frequency, win rate, and net P&L for each Mindset Tag
+ */
+export function calculateMindsetBreakdown(entries: JournalEntry[]): {
+  tag: MindsetTag;
+  count: number;
+  frequencyPct: number;
+  winRate: number;
+  totalPnL: number;
+}[] {
+  const totalEntries = Math.max(1, entries.length);
+  const map = new Map<MindsetTag, { count: number; wins: number; totalPnL: number }>();
+
+  entries.forEach((e) => {
+    const pnl = e.realizedPnL ?? e.unrealizedPnL ?? 0;
+    e.psychology.mindsetTags.forEach((tag) => {
+      const curr = map.get(tag) || { count: 0, wins: 0, totalPnL: 0 };
+      curr.count += 1;
+      curr.totalPnL += pnl;
+      if (pnl > 0) curr.wins += 1;
+      map.set(tag, curr);
+    });
+  });
+
+  const out: {
+    tag: MindsetTag;
+    count: number;
+    frequencyPct: number;
+    winRate: number;
+    totalPnL: number;
+  }[] = [];
+
+  map.forEach((val, tag) => {
+    out.push({
+      tag,
+      count: val.count,
+      frequencyPct: (val.count / totalEntries) * 100,
+      winRate: val.count > 0 ? val.wins / val.count : 0,
+      totalPnL: val.totalPnL
+    });
+  });
+
+  return out.sort((a, b) => b.count - a.count);
+}
+
+/**
+ * Computes performance grouped by Day of Week (Mon-Fri)
+ */
+export function calculateDayOfWeekBreakdown(entries: JournalEntry[]): {
+  day: string;
+  trades: number;
+  winRate: number;
+  totalPnL: number;
+}[] {
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  const map = new Map<string, { trades: number; wins: number; totalPnL: number }>();
+  days.forEach((d) => map.set(d, { trades: 0, wins: 0, totalPnL: 0 }));
+
+  entries.forEach((e) => {
+    const dt = new Date(`${e.entryDate.split('T')[0]}T12:00:00`);
+    const dayIdx = dt.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+    const dayName = days[Math.max(0, Math.min(4, dayIdx - 1))] || 'Monday';
+    const curr = map.get(dayName)!;
+    const pnl = e.realizedPnL ?? e.unrealizedPnL ?? 0;
+    curr.trades += 1;
+    curr.totalPnL += pnl;
+    if (pnl > 0) curr.wins += 1;
+  });
+
+  return days.map((day) => {
+    const val = map.get(day)!;
+    return {
+      day,
+      trades: val.trades,
+      winRate: val.trades > 0 ? val.wins / val.trades : 0,
+      totalPnL: val.totalPnL
+    };
+  });
+}
+
+/**
+ * Generates chronological cumulative equity and drawdown series
+ */
+export function calculateEquityCurve(entries: JournalEntry[]): {
+  date: string;
+  symbol: string;
+  tradePnL: number;
+  cumulativeEquity: number;
+  drawdown: number;
+}[] {
+  const closed = entries
+    .filter((e) => e.status === 'closed' && e.realizedPnL !== undefined)
+    .sort((a, b) => new Date(a.exitDate || a.entryDate).getTime() - new Date(b.exitDate || b.entryDate).getTime());
+
+  let cum = 0;
+  let peak = 0;
+
+  return closed.map((t) => {
+    const pnl = t.realizedPnL || 0;
+    cum += pnl;
+    if (cum > peak) peak = cum;
+    return {
+      date: (t.exitDate || t.entryDate).split('T')[0],
+      symbol: t.symbol,
+      tradePnL: pnl,
+      cumulativeEquity: cum,
+      drawdown: peak - cum
+    };
+  });
 }
