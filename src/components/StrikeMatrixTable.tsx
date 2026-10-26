@@ -32,100 +32,124 @@ export const StrikeMatrixTable: React.FC<StrikeMatrixTableProps> = ({
   const callRows = buildStrikeMatrix('call', callShort, callLong, callCredit, params, 10);
   const putRows = buildStrikeMatrix('put', putShort, putLong, putCredit, params, 10);
 
-  const renderTable = (type: OptionType, rows: StrikeMatrixRow[], selectedShort: number) => (
-    <div className="md-table-container">
-      <table className="md-table">
-        <thead>
-          <tr>
-            <th>Spread Strikes</th>
-            <th>Status</th>
-            <th>P({type === 'call' ? 'S > Short' : 'S < Short'})</th>
-            <th>P(Touch)</th>
-            <th>Expected Gain</th>
-            <th>Expected Pain (Excel)</th>
-            <th>EV (Excel Model)</th>
-            <th>EV (Exact Continuous)</th>
-            <th>Reward / Risk</th>
-            <th>Excel 1:1 Price</th>
-            <th>Exact 1:1 Fair Credit</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row: StrikeMatrixRow) => {
-            const isSelected = row.strike === selectedShort;
-            const probClass = row.probITM > 0.4
-              ? 'md-chip md-chip--loss'
-              : row.probITM > 0.2
-              ? 'md-chip md-chip--neutral'
-              : 'md-chip md-chip--gain';
+  const renderTable = (type: OptionType, rows: StrikeMatrixRow[], selectedShort: number) => {
+    // Identify optimal candidate strike around ~16-25% probITM with best Exact Reward/Risk
+    const viableRows = rows.filter((r) => r.probITM >= 0.08 && r.probITM <= 0.35);
+    const bestStrike = viableRows.length > 0
+      ? viableRows.reduce((best, curr) => (curr.exactRewardRisk > best.exactRewardRisk ? curr : best), viableRows[0]).strike
+      : -1;
 
-            return (
-              <tr
-                key={row.strike}
-                className={isSelected ? 'md-table__row--selected' : ''}
-                onClick={() => type === 'call' ? onSelectCallShort(row.strike) : onSelectPutShort(row.strike)}
-                style={{ cursor: 'pointer' }}
-              >
-                <td style={{ fontWeight: isSelected ? 700 : 500 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {isSelected && <CheckCircle2 size={14} color="var(--md-sys-color-primary)" />}
-                    <span>${row.strike.toFixed(0)} / ${row.longStrike.toFixed(0)}</span>
-                  </div>
-                </td>
-                <td>
-                  {isSelected ? (
-                    <span className="md-chip md-chip--neutral" style={{ fontSize: 10 }}>ACTIVE SHORT (x)</span>
-                  ) : (
-                    <span style={{ color: 'var(--md-sys-color-outline)', fontSize: 11 }}>Candidate</span>
-                  )}
-                </td>
-                <td>
-                  <span className={probClass} style={{ fontSize: 11 }}>
-                    {formatPercent(row.probITM)}
-                  </span>
-                </td>
-                <td style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
-                  {formatPercent(row.probTouch)}
-                </td>
-                <td style={{ color: 'var(--quant-color-gain)', fontWeight: isSelected ? 700 : 400 }}>
-                  {formatCurrency(row.excelGain)}
-                </td>
-                <td style={{ color: 'var(--quant-color-loss)', fontWeight: isSelected ? 700 : 400 }}>
-                  {formatCurrency(row.excelPain)}
-                </td>
-                <td>
-                  <span style={{ color: row.excelEV >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)', fontWeight: isSelected ? 700 : 400 }}>
-                    {formatCurrency(row.excelEV)}
-                  </span>
-                </td>
-                <td>
-                  <span
-                    className="md-chip"
-                    style={{
-                      backgroundColor: row.exactEV >= 0 ? 'var(--quant-color-gain-container)' : 'var(--quant-color-loss-container)',
-                      color: row.exactEV >= 0 ? 'var(--quant-color-on-gain-container)' : 'var(--quant-color-on-loss-container)',
-                      fontWeight: isSelected ? 700 : 500
-                    }}
-                  >
-                    {formatCurrency(row.exactEV)}
-                  </span>
-                </td>
-                <td style={{ fontWeight: isSelected ? 700 : 400 }}>
-                  {formatMultiplier(row.excelRewardRisk)} <span style={{ color: 'var(--md-sys-color-outline)', fontSize: 11 }}>({formatMultiplier(row.exactRewardRisk)})</span>
-                </td>
-                <td style={{ fontWeight: isSelected ? 700 : 400, color: 'var(--md-sys-color-on-surface-variant)' }}>
-                  {formatCurrency(row.excelPrice1to1)}
-                </td>
-                <td style={{ fontWeight: isSelected ? 700 : 500, color: 'var(--md-sys-color-primary)' }}>
-                  {formatCurrency(row.exactPrice1to1)}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
+    return (
+      <div className="md-table-container">
+        <table className="md-table">
+          <thead>
+            <tr>
+              <th>Spread Strikes</th>
+              <th>Status</th>
+              <th>Short Δ</th>
+              <th>Strike IV</th>
+              <th>P({type === 'call' ? 'S > Short' : 'S < Short'})</th>
+              <th>P(Touch)</th>
+              <th>Expected Gain</th>
+              <th>Expected Pain (Excel)</th>
+              <th>EV (Excel Model)</th>
+              <th>EV (Exact Continuous)</th>
+              <th>Reward / Risk</th>
+              <th>Excel 1:1 Price</th>
+              <th>Exact 1:1 Fair Credit</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row: StrikeMatrixRow) => {
+              const isSelected = row.strike === selectedShort;
+              const isOptimal = row.strike === bestStrike;
+              const probClass = row.probITM > 0.4
+                ? 'md-chip md-chip--loss'
+                : row.probITM > 0.2
+                ? 'md-chip md-chip--neutral'
+                : 'md-chip md-chip--gain';
+
+              return (
+                <tr
+                  key={row.strike}
+                  className={isSelected ? 'md-table__row--selected' : ''}
+                  onClick={() => type === 'call' ? onSelectCallShort(row.strike) : onSelectPutShort(row.strike)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <td style={{ fontWeight: isSelected ? 700 : 500 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {isSelected && <CheckCircle2 size={14} color="var(--md-sys-color-primary)" />}
+                      <span>${row.strike.toFixed(0)} / ${row.longStrike.toFixed(0)}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      {isSelected ? (
+                        <span className="md-chip md-chip--neutral" style={{ fontSize: 10 }}>ACTIVE SHORT (x)</span>
+                      ) : (
+                        <span style={{ color: 'var(--md-sys-color-outline)', fontSize: 11 }}>Candidate</span>
+                      )}
+                      {isOptimal && (
+                        <span className="md-chip md-chip--gain" style={{ fontSize: 9, padding: '1px 5px' }} title="Optimal 1σ Risk-Adjusted Strike">
+                          1σ OPTIMAL
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="mono-small" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
+                    {row.shortDelta >= 0 ? '+' : ''}{row.shortDelta.toFixed(2)}Δ
+                  </td>
+                  <td className="mono-small" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
+                    {(row.strikeIV * 100).toFixed(1)}%
+                  </td>
+                  <td>
+                    <span className={probClass} style={{ fontSize: 11 }}>
+                      {formatPercent(row.probITM)}
+                    </span>
+                  </td>
+                  <td style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
+                    {formatPercent(row.probTouch)}
+                  </td>
+                  <td style={{ color: 'var(--quant-color-gain)', fontWeight: isSelected ? 700 : 400 }}>
+                    {formatCurrency(row.excelGain)}
+                  </td>
+                  <td style={{ color: 'var(--quant-color-loss)', fontWeight: isSelected ? 700 : 400 }}>
+                    {formatCurrency(row.excelPain)}
+                  </td>
+                  <td>
+                    <span style={{ color: row.excelEV >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)', fontWeight: isSelected ? 700 : 400 }}>
+                      {formatCurrency(row.excelEV)}
+                    </span>
+                  </td>
+                  <td>
+                    <span
+                      className="md-chip"
+                      style={{
+                        backgroundColor: row.exactEV >= 0 ? 'var(--quant-color-gain-container)' : 'var(--quant-color-loss-container)',
+                        color: row.exactEV >= 0 ? 'var(--quant-color-on-gain-container)' : 'var(--quant-color-on-loss-container)',
+                        fontWeight: isSelected ? 700 : 500
+                      }}
+                    >
+                      {formatCurrency(row.exactEV)}
+                    </span>
+                  </td>
+                  <td style={{ fontWeight: isSelected ? 700 : 400 }}>
+                    {formatMultiplier(row.excelRewardRisk)} <span style={{ color: 'var(--md-sys-color-outline)', fontSize: 11 }}>({formatMultiplier(row.exactRewardRisk)})</span>
+                  </td>
+                  <td style={{ fontWeight: isSelected ? 700 : 400, color: 'var(--md-sys-color-on-surface-variant)' }}>
+                    {formatCurrency(row.excelPrice1to1)}
+                  </td>
+                  <td style={{ fontWeight: isSelected ? 700 : 500, color: 'var(--md-sys-color-primary)' }}>
+                    {formatCurrency(row.exactPrice1to1)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
   return (
     <div className="md-card md-card--elevated">

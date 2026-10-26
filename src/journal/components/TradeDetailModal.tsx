@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { JournalEntry, ExecutionGrade } from '../types';
 import { formatCurrency, formatPercent, formatDelta } from '../../utils/formatters';
-import { X, CheckCircle2, AlertTriangle, ShieldCheck, Tag, CheckSquare, RefreshCw, Save, Edit3, Trash2 } from 'lucide-react';
+import { X, CheckCircle2, AlertTriangle, ShieldCheck, Tag, CheckSquare, RefreshCw, Save, Edit3, Trash2, Calculator } from 'lucide-react';
 
 interface TradeDetailModalProps {
   trade: JournalEntry | null;
@@ -9,9 +9,17 @@ interface TradeDetailModalProps {
   onUpdateTrade?: (updated: JournalEntry) => void;
   onEditTrade?: (trade: JournalEntry) => void;
   onDeleteTrade?: (id: string) => void;
+  onLoadIntoCalculator?: (trade: JournalEntry) => void;
 }
 
-export const TradeDetailModal: React.FC<TradeDetailModalProps> = ({ trade, onClose, onUpdateTrade, onEditTrade, onDeleteTrade }) => {
+export const TradeDetailModal: React.FC<TradeDetailModalProps> = ({
+  trade,
+  onClose,
+  onUpdateTrade,
+  onEditTrade,
+  onDeleteTrade,
+  onLoadIntoCalculator
+}) => {
   const [closeDate, setCloseDate] = useState<string>('');
   const [closingPnL, setClosingPnL] = useState<number>(0);
   const [adjNote, setAdjNote] = useState<string>('');
@@ -57,8 +65,18 @@ export const TradeDetailModal: React.FC<TradeDetailModalProps> = ({ trade, onClo
 
   const handleAddAdjustment = () => {
     if (!onUpdateTrade || !adjNote.trim()) return;
+    const baseContracts = Math.max(1, trade.legs[0]?.contracts || 5);
+    const perShareDelta = adjCredit / (baseContracts * 100);
+    const newNetPerShare = Number((trade.netCreditOrDebitPerShare + perShareDelta).toFixed(2));
+    const newTotalPremium = trade.totalPremiumDollars + adjCredit;
+    const newMaxRisk = Math.max(0, trade.maxRiskDollars - adjCredit);
+
     const updated: JournalEntry = {
       ...trade,
+      status: trade.status === 'open' ? 'adjusted' : trade.status,
+      netCreditOrDebitPerShare: newNetPerShare,
+      totalPremiumDollars: newTotalPremium,
+      maxRiskDollars: newMaxRisk,
       adjustments: [
         ...trade.adjustments,
         {
@@ -117,6 +135,20 @@ export const TradeDetailModal: React.FC<TradeDetailModalProps> = ({ trade, onClo
             >
               {formatCurrency(pnl)}
             </div>
+            {onLoadIntoCalculator && (
+              <button
+                className="md-button md-button--filled"
+                style={{ height: 32, padding: '0 10px', fontSize: 12 }}
+                onClick={() => {
+                  onLoadIntoCalculator(trade);
+                  onClose();
+                }}
+                title="Load this trade's underlying and strike structure into the 2D/3D Calculator"
+              >
+                <Calculator size={14} />
+                <span>Model in Calculator</span>
+              </button>
+            )}
             {onEditTrade && (
               <button
                 className="md-button md-button--tonal"
@@ -303,9 +335,16 @@ export const TradeDetailModal: React.FC<TradeDetailModalProps> = ({ trade, onClo
 
           {/* Adjustments & Rolls History + Add Form */}
           <div className="md-card md-card--outlined" style={{ padding: 14 }}>
-            <div className="title-small" style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <RefreshCw size={15} color="var(--md-sys-color-primary)" />
-              Position Adjustments & Rolls ({trade.adjustments.length})
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+              <div className="title-small" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <RefreshCw size={15} color="var(--md-sys-color-primary)" />
+                Position Adjustments & Roll-Chain Cost Basis ({trade.adjustments.length})
+              </div>
+              <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--md-sys-color-on-surface-variant)' }}>
+                <span>Adj. Net Credit: <strong className="mono-small" style={{ color: 'var(--quant-color-gain)' }}>{formatCurrency(trade.netCreditOrDebitPerShare)}/sh</strong></span>
+                <span>Total Premium: <strong className="mono-small">{formatCurrency(trade.totalPremiumDollars)}</strong></span>
+                <span>Adj. Max Risk: <strong className="mono-small" style={{ color: 'var(--quant-color-loss)' }}>{formatCurrency(trade.maxRiskDollars)}</strong></span>
+              </div>
             </div>
             {trade.adjustments.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>

@@ -1,5 +1,5 @@
 import { normalCdf } from './distributions';
-import { blackScholes } from './blackScholes';
+import { blackScholes, getStrikeIV } from './blackScholes';
 import { OptionType, SpreadEvaluation, StrikeMatrixRow, UnderlyingParams } from './types';
 
 /**
@@ -33,7 +33,9 @@ export function evaluateSpread(
   params: UnderlyingParams
 ): SpreadEvaluation {
   const S0 = params.spotPrice;
-  const sigma = params.atmIV;
+  const skew = params.skewSlope ?? 0;
+  const shortIV = getStrikeIV(shortStrike, S0, params.atmIV, skew);
+  const longIV = getStrikeIV(longStrike, S0, params.atmIV, skew);
   const dte = params.dte;
   const T = dte / 365;
   const contracts = params.contracts;
@@ -42,11 +44,11 @@ export function evaluateSpread(
   const spreadWidth = Math.abs(longStrike - shortStrike);
   const totalCredit = netCredit * multiplier;
   const trueMaxGain = totalCredit;
-  const trueMaxLoss = (spreadWidth - netCredit) * multiplier;
+  const trueMaxLoss = Math.max(0, (spreadWidth - netCredit) * multiplier);
 
-  // Probabilities using Excel's driftless formula
-  const probITM = probITMDriftless(type, S0, shortStrike, sigma, dte);
-  const probFullLoss = probITMDriftless(type, S0, longStrike, sigma, dte);
+  // Probabilities using Excel's driftless formula (with strike-specific IV when skew is active)
+  const probITM = probITMDriftless(type, S0, shortStrike, shortIV, dte);
+  const probFullLoss = probITMDriftless(type, S0, longStrike, longIV, dte);
   const probMaxProfit = 1 - probITM;
 
   // --- 1. LEGACY EXCEL SPREADSHEET FORMULAS ---
@@ -70,8 +72,8 @@ export function evaluateSpread(
   // Exact expected loss takes into account partial loss in [K_short, K_long] and max loss beyond.
   // Using Black-Scholes risk-neutral expectation:
   // Expected liability at expiry = e^(rT) * (Option_short - Option_long)
-  const bsShort = blackScholes(type, S0, shortStrike, T, sigma, params.riskFreeRate, params.dividendYield);
-  const bsLong = blackScholes(type, S0, longStrike, T, sigma, params.riskFreeRate, params.dividendYield);
+  const bsShort = blackScholes(type, S0, shortStrike, T, shortIV, params.riskFreeRate, params.dividendYield);
+  const bsLong = blackScholes(type, S0, longStrike, T, longIV, params.riskFreeRate, params.dividendYield);
 
   // Undiscounted expected payout of the short vertical spread at expiration
   const expectedPayoutPerShare = Math.exp(params.riskFreeRate * T) * Math.max(0, bsShort.price - bsLong.price);
@@ -124,6 +126,8 @@ export function buildStrikeMatrix(
 ): StrikeMatrixRow[] {
   const S0 = params.spotPrice;
   const gap = params.strikeGap;
+  const T = Math.max(0.001, params.dte / 365);
+  const skew = params.skewSlope ?? 0;
   const spreadWidth = Math.abs(selectedLongStrike - selectedShortStrike) || gap;
   const rows: StrikeMatrixRow[] = [];
 
@@ -142,7 +146,9 @@ export function buildStrikeMatrix(
         ? strike + spreadWidth
         : strike - spreadWidth;
 
-    const probITM = probITMDriftless(type, S0, strike, params.atmIV, params.dte);
+    const strikeIV = getStrikeIV(strike, S0, params.atmIV, skew);
+    const bsShort = blackScholes(type, S0, strike, T, strikeIV, params.riskFreeRate, params.dividendYield);
+    const probITM = probITMDriftless(type, S0, strike, strikeIV, params.dte);
     const probTouch = Math.min(1, 2 * probITM);
 
     const evalResult = evaluateSpread(type, strike, rowLongStrike, netCredit, params);
@@ -153,6 +159,8 @@ export function buildStrikeMatrix(
       isSelected,
       probITM,
       probTouch,
+      strikeIV,
+      shortDelta: bsShort.delta,
       excelGain: evalResult.trueMaxGain * (1 - probITM),
       excelPain: evalResult.excelMaxPain,
       excelEV: evalResult.excelEV,

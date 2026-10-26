@@ -1,7 +1,55 @@
 import React, { useState } from 'react';
-import { JournalEntry, StrategyType, TradeStatus, ExecutionGrade } from '../types';
+import { JournalEntry, StrategyType, TradeStatus, ExecutionGrade, TradeLeg } from '../types';
 import { exportJournalJSON, importJournalJSON, saveJournalEntry } from '../storage';
 import { Upload, Download, FileText, CheckCircle2, AlertCircle, X } from 'lucide-react';
+
+/**
+ * RFC-4180 compliant CSV row parser supporting quoted strings with embedded commas
+ */
+function parseCSVRow(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+/**
+ * Decodes standard OCC option symbol (e.g. "SPY 261030P00575000" or "AAPL261120C00705000")
+ */
+function parseOCCSymbol(raw: string): {
+  underlying: string;
+  expirationDate: string;
+  type: 'call' | 'put';
+  strike: number;
+} | null {
+  const cleaned = raw.replace(/\s+/g, '').toUpperCase();
+  const match = cleaned.match(/^([A-Z]{1,6})(\d{2})(\d{2})(\d{2})([CP])(\d{8})$/);
+  if (!match) return null;
+  const [, underlying, yy, mm, dd, cp, strikeDigits] = match;
+  return {
+    underlying,
+    expirationDate: `20${yy}-${mm}-${dd}`,
+    type: cp === 'C' ? 'call' : 'put',
+    strike: parseInt(strikeDigits, 10) / 1000
+  };
+}
 
 interface BrokerImportModalProps {
   isOpen: boolean;
@@ -78,74 +126,129 @@ export const BrokerImportModal: React.FC<BrokerImportModalProps> = ({
           setIsError(true);
         }
       } else {
-        // Parse CSV rows (supports OptionsQuant CSV and generic Broker CSV columns)
+        // Parse CSV rows (supports OptionsQuant CSV, ThinkorSwim, tastytrade, IBKR, and OCC symbols)
         const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
         if (lines.length < 2) {
           setStatusMessage('CSV file contains no data rows.');
           setIsError(true);
           return;
         }
-        const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
+        const headers = parseCSVRow(lines[0]).map((h) => h.toLowerCase());
+        const groupedEntries = new Map<string, JournalEntry>();
         let importedCount = 0;
 
         for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(',').map((c) => c.trim().replace(/^"|"$/g, ''));
+          const cols = parseCSVRow(lines[i]);
           if (cols.length < 3) continue;
 
-          const getCol = (names: string[], fallbackIdx: number) => {
+          const getCol = (names: string[], fallbackIdx = -1) => {
             const idx = headers.findIndex((h) => names.some((n) => h.includes(n)));
-            return idx >= 0 && cols[idx] !== undefined ? cols[idx] : cols[fallbackIdx] || '';
+            if (idx >= 0 && cols[idx] !== undefined) return cols[idx];
+            return fallbackIdx >= 0 && cols[fallbackIdx] !== undefined ? cols[fallbackIdx] : '';
           };
 
-          const rawSym = getCol(['symbol', 'ticker', 'underlying'], 2).toUpperCase() || 'SPY';
-          const rawDate = getCol(['date', 'entry', 'time'], 1) || new Date().toISOString().split('T')[0];
-          const rawStrat = getCol(['strategy', 'type', 'spread'], 3).toLowerCase() as StrategyType;
+          const rawSymField = getCol(['symbol', 'ticker', 'underlying', 'instrument'], 2).toUpperCase() || 'SPY';
+          const occ = parseOCCSymbol(rawSymField);
+          const rawSym = occ ? occ.underlying : rawSymField.split(/\s+/)[0];
+          const rawDate = (getCol(['date', 'entry', 'time'], 1) || new Date().toISOString().split('T')[0]).split('T')[0];
+          const rawStrat = getCol(['strategy', 'spread'], 3).toLowerCase().replace(/\s+/g, '-') as StrategyType;
           const rawStatus = getCol(['status'], 4).toLowerCase() as TradeStatus;
-          const rawPnL = parseFloat(getCol(['pnl', 'profit', 'realized'], 5)) || 0;
-          const rawCredit = parseFloat(getCol(['credit', 'price', 'premium'], 6)) || 0.75;
-          const rawRisk = parseFloat(getCol(['risk', 'margin'], 7)) || 425;
+          const rawPnL = parseFloat(getCol(['pnl', 'profit', 'realized', 'net'], 5).replace(/[$,]/g, '')) || 0;
+          const rawCredit = parseFloat(getCol(['credit', 'price', 'premium', 'fill'], 6).replace(/[$,]/g, '')) || 0.75;
+          const rawRisk = parseFloat(getCol(['risk', 'margin', 'max risk'], 7).replace(/[$,]/g, '')) || 425;
           const rawGrade = (getCol(['grade'], 8).toUpperCase() || 'A') as ExecutionGrade;
           const rawRules = getCol(['rules'], 9).toUpperCase() !== 'NO';
           const rawNotes = getCol(['notes', 'thesis', 'description'], 10) || `Imported from ${file.name}`;
 
-          const entry: JournalEntry = {
-            id: `csv-${Date.now()}-${i}`,
-            entryDate: rawDate.split('T')[0],
-            exitDate: rawStatus === 'open' ? undefined : rawDate.split('T')[0],
-            symbol: rawSym,
-            strategyType: rawStrat || 'iron-condor',
-            status: rawStatus === 'open' ? 'open' : 'closed',
-            legs: [
-              {
-                id: `csv-leg-${i}`,
-                type: 'put',
-                position: 'sell',
-                strike: 500,
-                entryPrice: rawCredit,
-                contracts: 5,
-                status: rawStatus === 'open' ? 'open' : 'closed'
-              }
-            ],
-            adjustments: [],
-            netCreditOrDebitPerShare: rawCredit,
-            totalPremiumDollars: rawCredit * 500,
-            feesAndCommissions: 3.25,
-            realizedPnL: rawStatus === 'open' ? undefined : rawPnL,
-            maxRiskDollars: rawRisk,
-            returnOnRisk: rawRisk > 0 ? rawPnL / rawRisk : 0,
-            psychology: {
-              confidence: 8,
-              mindsetTags: ['disciplined'],
-              rulesFollowed: rawRules,
-              planAdherenceScore: rawRules ? 100 : 70,
-              executionGrade: ['A+', 'A', 'B+', 'B', 'C', 'D', 'F'].includes(rawGrade) ? rawGrade : 'A'
-            },
-            thesisNotes: rawNotes,
-            tags: ['csv-import']
+          // Extract leg-level details if present
+          const rawStrike = occ ? occ.strike : parseFloat(getCol(['strike']).replace(/[$,]/g, '')) || 500;
+          const rawOptType = occ
+            ? occ.type
+            : getCol(['call/put', 'option type', 'right', 'put/call']).toLowerCase().includes('call')
+              ? 'call'
+              : 'put';
+          const rawSide = getCol(['side', 'position', 'action']).toLowerCase();
+          const legPos: 'buy' | 'sell' = rawSide.includes('buy') || rawSide.includes('bto') || rawSide.includes('btc') ? 'buy' : 'sell';
+          const rawContracts = Math.max(1, Math.abs(parseInt(getCol(['qty', 'quantity', 'contracts']), 10) || 5));
+
+          const leg: TradeLeg = {
+            id: `csv-leg-${Date.now()}-${i}`,
+            type: rawOptType,
+            position: legPos,
+            strike: rawStrike,
+            expirationDate: occ?.expirationDate,
+            entryPrice: Math.abs(rawCredit),
+            contracts: rawContracts,
+            status: rawStatus === 'open' ? 'open' : 'closed'
           };
+
+          // Group multi-leg broker fills that share the same Date + Symbol when no explicit ID is given
+          const explicitId = getCol(['id'], 0);
+          const groupKey = explicitId && explicitId.startsWith('trade-') ? explicitId : `${rawDate}_${rawSym}_${i}`;
+          const brokerMultiLegKey = !explicitId ? `${rawDate}_${rawSym}` : groupKey;
+
+          if (!explicitId && groupedEntries.has(brokerMultiLegKey)) {
+            const existing = groupedEntries.get(brokerMultiLegKey)!;
+            existing.legs.push(leg);
+            const signedLegPrem = (legPos === 'sell' ? 1 : -1) * Math.abs(rawCredit);
+            existing.netCreditOrDebitPerShare = Number((existing.netCreditOrDebitPerShare + signedLegPrem).toFixed(2));
+            existing.totalPremiumDollars = existing.netCreditOrDebitPerShare * rawContracts * 100;
+            if (existing.realizedPnL !== undefined) {
+              existing.realizedPnL += rawPnL;
+            }
+            // Auto-infer strategy type from grouped leg count
+            const hasCalls = existing.legs.some((l) => l.type === 'call');
+            const hasPuts = existing.legs.some((l) => l.type === 'put');
+            if (existing.legs.length >= 4 && hasCalls && hasPuts) {
+              existing.strategyType = 'iron-condor';
+            } else if (existing.legs.length === 2 && hasCalls && hasPuts) {
+              existing.strategyType = 'strangle';
+            } else if (existing.legs.length === 2 && hasCalls) {
+              existing.strategyType = 'bear-call-spread';
+            } else if (existing.legs.length === 2 && hasPuts) {
+              existing.strategyType = 'bull-put-spread';
+            }
+          } else {
+            const validStrats: StrategyType[] = [
+              'iron-condor', 'bull-put-spread', 'bear-call-spread', 'iron-butterfly',
+              'calendar-spread', 'diagonal-spread', 'straddle', 'strangle',
+              'covered-call', 'cash-secured-put', 'long-call', 'long-put', 'equity', 'custom'
+            ];
+            const resolvedStrat: StrategyType = validStrats.includes(rawStrat) ? rawStrat : 'iron-condor';
+
+            const entry: JournalEntry = {
+              id: `csv-${Date.now()}-${i}`,
+              entryDate: rawDate,
+              exitDate: rawStatus === 'open' ? undefined : rawDate,
+              symbol: rawSym,
+              strategyType: resolvedStrat,
+              status: rawStatus === 'open' ? 'open' : 'closed',
+              legs: [leg],
+              adjustments: [],
+              netCreditOrDebitPerShare: rawCredit,
+              totalPremiumDollars: rawCredit * rawContracts * 100,
+              feesAndCommissions: Number((rawContracts * 0.65).toFixed(2)),
+              realizedPnL: rawStatus === 'open' ? undefined : rawPnL,
+              maxRiskDollars: rawRisk,
+              returnOnRisk: rawRisk > 0 ? rawPnL / rawRisk : 0,
+              psychology: {
+                confidence: 8,
+                mindsetTags: ['disciplined'],
+                rulesFollowed: rawRules,
+                planAdherenceScore: rawRules ? 100 : 70,
+                executionGrade: ['A+', 'A', 'B+', 'B', 'C', 'D', 'F'].includes(rawGrade) ? rawGrade : 'A'
+              },
+              thesisNotes: rawNotes,
+              tags: ['csv-import']
+            };
+            groupedEntries.set(brokerMultiLegKey, entry);
+          }
+        }
+
+        groupedEntries.forEach((entry) => {
           saveJournalEntry(entry);
           importedCount++;
-        }
+        });
 
         onReloadEntries();
         setStatusMessage(`Imported ${importedCount} trade(s) from ${file.name} into journal!`);

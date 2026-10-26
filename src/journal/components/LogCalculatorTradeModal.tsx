@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { IronCondorEvaluation, UnderlyingParams } from '../../quant/types';
-import { JournalEntry, MindsetTag, ExecutionGrade, TradeLeg } from '../types';
+import { IronCondorEvaluation, StrategyMode, UnderlyingParams } from '../../quant/types';
+import { JournalEntry, MindsetTag, ExecutionGrade, TradeLeg, StrategyType } from '../types';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
 import { Zap, ShieldCheck, Check, X } from 'lucide-react';
 
@@ -9,7 +9,7 @@ interface LogCalculatorTradeModalProps {
   onClose: () => void;
   params: UnderlyingParams;
   condorEval: IronCondorEvaluation;
-  strategyMode: 'iron-condor' | 'call-spread' | 'put-spread';
+  strategyMode: StrategyMode;
   onSaveTrade: (entry: JournalEntry) => void;
 }
 
@@ -58,38 +58,43 @@ export const LogCalculatorTradeModal: React.FC<LogCalculatorTradeModalProps> = (
     const pl = condorEval.putSpread.longStrike;
     const contracts = params.contracts;
 
-    if (strategyMode === 'iron-condor' || strategyMode === 'call-spread') {
-      legs.push({ id: `leg-${Date.now()}-1`, type: 'call', position: 'sell', strike: cs, entryPrice: condorEval.callSpread.netCredit + 0.15, contracts, status: 'open' });
-      legs.push({ id: `leg-${Date.now()}-2`, type: 'call', position: 'buy', strike: cl, entryPrice: 0.15, contracts, status: 'open' });
+    const includeCall = strategyMode !== 'put-spread';
+    const includePut = strategyMode !== 'call-spread';
+    const hasLongWings = strategyMode !== 'short-strangle';
+
+    if (includeCall) {
+      legs.push({ id: `leg-${Date.now()}-1`, type: 'call', position: 'sell', strike: cs, entryPrice: condorEval.callSpread.netCredit + (hasLongWings ? 0.15 : 0), contracts, status: 'open' });
+      if (hasLongWings) {
+        legs.push({ id: `leg-${Date.now()}-2`, type: 'call', position: 'buy', strike: cl, entryPrice: 0.15, contracts, status: 'open' });
+      }
     }
-    if (strategyMode === 'iron-condor' || strategyMode === 'put-spread') {
-      legs.push({ id: `leg-${Date.now()}-3`, type: 'put', position: 'sell', strike: ps, entryPrice: condorEval.putSpread.netCredit + 0.12, contracts, status: 'open' });
-      legs.push({ id: `leg-${Date.now()}-4`, type: 'put', position: 'buy', strike: pl, entryPrice: 0.12, contracts, status: 'open' });
+    if (includePut) {
+      legs.push({ id: `leg-${Date.now()}-3`, type: 'put', position: 'sell', strike: ps, entryPrice: condorEval.putSpread.netCredit + (hasLongWings ? 0.12 : 0), contracts, status: 'open' });
+      if (hasLongWings) {
+        legs.push({ id: `leg-${Date.now()}-4`, type: 'put', position: 'buy', strike: pl, entryPrice: 0.12, contracts, status: 'open' });
+      }
     }
 
-    const netCredit = strategyMode === 'iron-condor'
-      ? condorEval.totalCreditPerShare
-      : strategyMode === 'call-spread'
-      ? condorEval.callSpread.netCredit
-      : condorEval.putSpread.netCredit;
+    const netCredit = condorEval.totalCreditPerShare;
+    const totalPremium = condorEval.totalCreditDollars;
+    const maxRisk = condorEval.maxLoss;
 
-    const totalPremium = strategyMode === 'iron-condor'
-      ? condorEval.totalCreditDollars
-      : strategyMode === 'call-spread'
-      ? condorEval.callSpread.totalCredit
-      : condorEval.putSpread.totalCredit;
-
-    const maxRisk = strategyMode === 'iron-condor'
-      ? condorEval.maxLoss
-      : strategyMode === 'call-spread'
-      ? condorEval.callSpread.trueMaxLoss
-      : condorEval.putSpread.trueMaxLoss;
+    const mappedStrategy: StrategyType =
+      strategyMode === 'iron-condor'
+        ? 'iron-condor'
+        : strategyMode === 'iron-butterfly'
+          ? 'iron-butterfly'
+          : strategyMode === 'short-strangle'
+            ? 'strangle'
+            : strategyMode === 'call-spread'
+              ? 'bear-call-spread'
+              : 'bull-put-spread';
 
     const newEntry: JournalEntry = {
       id: `trade-${Date.now()}`,
       entryDate: today,
       symbol: params.symbol,
-      strategyType: strategyMode === 'iron-condor' ? 'iron-condor' : strategyMode === 'call-spread' ? 'bear-call-spread' : 'bull-put-spread',
+      strategyType: mappedStrategy,
       status: 'open',
       legs,
       adjustments: [],

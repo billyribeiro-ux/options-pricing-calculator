@@ -199,6 +199,23 @@ export const ParameterInputs: React.FC<ParameterInputsProps> = ({
             <span className="md-input-suffix">%</span>
           </div>
         </div>
+
+        {/* Volatility Skew Regime */}
+        <div className="md-field-group">
+          <label htmlFor="param-skew-slope" className="md-field-label">Vol Skew Regime</label>
+          <select
+            id="param-skew-slope"
+            name="skewSlope"
+            className="md-select"
+            style={{ height: 40, fontSize: 12, padding: '0 10px' }}
+            value={String(params.skewSlope ?? 0)}
+            onChange={(e) => onChangeParams({ skewSlope: parseFloat(e.target.value) || 0 })}
+          >
+            <option value="0">Flat IV (Excel Parity)</option>
+            <option value="0.15">Equity Put Smirk (0.15)</option>
+            <option value="0.3">Index Crash Skew (0.30)</option>
+          </select>
+        </div>
       </div>
 
       {/* Volatility Bands Cards */}

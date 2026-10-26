@@ -39,8 +39,13 @@ export const KPICards: React.FC<KPICardsProps> = ({ condorEval }) => {
           <span className="label-small" style={{ color: 'var(--md-sys-color-secondary)' }}>PROBABILITY OF PROFIT</span>
           <Percent size={16} color="var(--md-sys-color-secondary)" />
         </div>
-        <div className="mono-large" style={{ color: 'var(--md-sys-color-on-surface)' }}>
-          {formatPercent(condorEval.probMaxProfit)}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+          <div className="mono-large" style={{ color: 'var(--md-sys-color-on-surface)' }}>
+            {formatPercent(condorEval.probMaxProfit)}
+          </div>
+          <span className="md-chip md-chip--gain" style={{ fontSize: 10, padding: '2px 6px' }} title="Probability of touching 50% max profit prior to expiration">
+            POP50: {formatPercent(condorEval.prob50Profit)}
+          </span>
         </div>
         <div className="body-small" style={{ marginTop: 4, color: 'var(--md-sys-color-on-surface-variant)' }}>
           Breakevens: <span className="mono-small">{breakevenDisplay}</span>
@@ -110,6 +115,14 @@ export const KPICards: React.FC<KPICardsProps> = ({ condorEval }) => {
           <div>
             <span style={{ color: 'var(--md-sys-color-outline)' }}>Volga: </span>
             <span className="mono-small">{condorEval.greeks.volga.toFixed(2)}</span>
+          </div>
+          <div>
+            <span style={{ color: 'var(--md-sys-color-outline)' }}>Charm: </span>
+            <span className="mono-small" title="Daily Delta decay (dDelta/dDay)">{condorEval.greeks.charm.toFixed(2)}/d</span>
+          </div>
+          <div>
+            <span style={{ color: 'var(--md-sys-color-outline)' }}>Speed: </span>
+            <span className="mono-small" title="Gamma acceleration (dGamma/dSpot)">{condorEval.greeks.speed.toFixed(4)}</span>
           </div>
         </div>
         <div className="body-small" style={{ marginTop: 4, color: 'var(--md-sys-color-on-surface-variant)' }}>

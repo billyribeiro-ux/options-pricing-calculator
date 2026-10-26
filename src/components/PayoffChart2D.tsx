@@ -1,9 +1,10 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { IronCondorEvaluation, UnderlyingParams } from '../quant/types';
-import { blackScholes } from '../quant/blackScholes';
+import { blackScholes, getStrikeIV } from '../quant/blackScholes';
+import { calculatePositionGreeksAtSpot } from '../quant/greeks';
 import { normalPdf } from '../quant/distributions';
 import { formatCurrency } from '../utils/formatters';
-import { LineChart, ZoomIn } from 'lucide-react';
+import { LineChart, ZoomIn, Grid, RotateCcw } from 'lucide-react';
 
 interface PayoffChart2DProps {
   condorEval: IronCondorEvaluation;
@@ -18,6 +19,8 @@ interface StrikeMarker {
   priority: number;
 }
 
+export type GreekOverlayType = 'none' | 'delta' | 'gamma' | 'theta' | 'vega' | 'charm';
+
 export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -25,15 +28,28 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
     price: number;
     pnlExp: number;
     pnlNow: number;
+    greekVal?: number;
     mouseX: number;
     mouseY: number;
   } | null>(null);
   const [zoomMode, setZoomMode] = useState<'focus' | 'wide'>('focus');
+  const [chartView, setChartView] = useState<'curve' | 'heatmap'>('curve');
+  const [heatmapUnit, setHeatmapUnit] = useState<'dollar' | 'pct'>('dollar');
+  const [daysElapsed, setDaysElapsed] = useState<number>(0);
+  const [ivShock, setIvShock] = useState<number>(0);
+  const [greekOverlay, setGreekOverlay] = useState<GreekOverlayType>('none');
   const [canvasSize, setCanvasSize] = useState<{ width: number; height: number }>({ width: 800, height: 320 });
+
+  // Clamp daysElapsed if params.dte changes
+  const effectiveDaysElapsed = Math.min(daysElapsed, Math.max(0, params.dte - 0.25));
+  const simDteRemaining = Math.max(0.1, params.dte - effectiveDaysElapsed);
 
   const S0 = params.spotPrice;
   const T = Math.max(0.001, params.dte / 365);
+  const simT = Math.max(0.0005, simDteRemaining / 365);
   const sigma = Math.max(0.01, params.atmIV);
+  const simBaseIV = Math.max(0.01, sigma + ivShock);
+  const skew = params.skewSlope ?? 0;
   const contracts = params.contracts;
   const multiplier = contracts * 100;
   const totalCredit = condorEval.totalCreditDollars;
@@ -43,19 +59,20 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
   const ps = condorEval.putSpread.shortStrike;
   const pl = condorEval.putSpread.longStrike;
 
-  const includeCall = condorEval.mode === 'iron-condor' || condorEval.mode === 'call-spread';
-  const includePut = condorEval.mode === 'iron-condor' || condorEval.mode === 'put-spread';
+  const includeCall = condorEval.mode !== 'put-spread';
+  const includePut = condorEval.mode !== 'call-spread';
+  const hasLongWings = condorEval.mode !== 'short-strangle';
 
   // Adaptive domain range: 'focus' frames strikes + 1.8 std dev for spacious label separation; 'wide' frames 3.2 std dev
   const stdDev = S0 * sigma * Math.sqrt(T);
   const sigmaMult = zoomMode === 'focus' ? 1.85 : 3.25;
   const rawMin = Math.min(
     S0 - stdDev * sigmaMult,
-    includePut ? Math.min(ps, pl) - stdDev * 0.5 : S0
+    includePut ? Math.min(ps, hasLongWings ? pl : ps) - stdDev * 0.5 : S0
   );
   const rawMax = Math.max(
     S0 + stdDev * sigmaMult,
-    includeCall ? Math.max(cs, cl) + stdDev * 0.5 : S0
+    includeCall ? Math.max(cs, hasLongWings ? cl : cs) + stdDev * 0.5 : S0
   );
   const minPrice = Math.floor(rawMin);
   const maxPrice = Math.ceil(rawMax);
@@ -65,29 +82,64 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
     (S: number): number => {
       let callLoss = 0;
       if (includeCall && S > cs) {
-        callLoss = Math.min(S - cs, Math.abs(cl - cs)) * multiplier;
+        callLoss = (hasLongWings ? Math.min(S - cs, Math.abs(cl - cs)) : S - cs) * multiplier;
       }
       let putLoss = 0;
       if (includePut && S < ps) {
-        putLoss = Math.min(ps - S, Math.abs(ps - pl)) * multiplier;
+        putLoss = (hasLongWings ? Math.min(ps - S, Math.abs(ps - pl)) : ps - S) * multiplier;
       }
       return totalCredit - callLoss - putLoss;
     },
-    [includeCall, includePut, cs, cl, ps, pl, multiplier, totalCredit]
+    [includeCall, includePut, hasLongWings, cs, cl, ps, pl, multiplier, totalCredit]
   );
 
-  // Today PnL function (Black-Scholes theoretical value today vs entry credit)
-  const calcPnLToday = useCallback(
-    (S: number): number => {
-      const sc = includeCall ? blackScholes('call', S, cs, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
-      const lc = includeCall ? blackScholes('call', S, cl, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
-      const sp = includePut ? blackScholes('put', S, ps, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
-      const lp = includePut ? blackScholes('put', S, pl, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
+  // PnL at any remaining time T_rem (in years) and base IV
+  const calcPnLAtHorizon = useCallback(
+    (S: number, remYears: number, baseVol: number): number => {
+      if (remYears <= 0.0003) return calcPnLExpiration(S);
+      const scIV = getStrikeIV(cs, S, baseVol, skew);
+      const lcIV = getStrikeIV(cl, S, baseVol, skew);
+      const spIV = getStrikeIV(ps, S, baseVol, skew);
+      const lpIV = getStrikeIV(pl, S, baseVol, skew);
+
+      const sc = includeCall ? blackScholes('call', S, cs, remYears, scIV, params.riskFreeRate, params.dividendYield).price : 0;
+      const lc = includeCall && hasLongWings ? blackScholes('call', S, cl, remYears, lcIV, params.riskFreeRate, params.dividendYield).price : 0;
+      const sp = includePut ? blackScholes('put', S, ps, remYears, spIV, params.riskFreeRate, params.dividendYield).price : 0;
+      const lp = includePut && hasLongWings ? blackScholes('put', S, pl, remYears, lpIV, params.riskFreeRate, params.dividendYield).price : 0;
 
       const currentCost = (-sc + lc - sp + lp) * multiplier;
       return totalCredit + currentCost;
     },
-    [includeCall, includePut, cs, cl, ps, pl, T, sigma, params.riskFreeRate, params.dividendYield, multiplier, totalCredit]
+    [includeCall, includePut, hasLongWings, cs, cl, ps, pl, skew, params.riskFreeRate, params.dividendYield, multiplier, totalCredit, calcPnLExpiration]
+  );
+
+  // Simulated What-If Horizon PnL function
+  const calcPnLToday = useCallback(
+    (S: number): number => {
+      return calcPnLAtHorizon(S, simT, simBaseIV);
+    },
+    [calcPnLAtHorizon, simT, simBaseIV]
+  );
+
+  // Greek overlay evaluation at spot S
+  const evalGreekAtPrice = useCallback(
+    (S: number): number => {
+      if (greekOverlay === 'none') return 0;
+      const g = calculatePositionGreeksAtSpot(
+        S,
+        simDteRemaining,
+        ivShock,
+        cs,
+        cl,
+        ps,
+        pl,
+        contracts,
+        params,
+        condorEval.mode
+      );
+      return g[greekOverlay];
+    },
+    [greekOverlay, simDteRemaining, ivShock, cs, cl, ps, pl, contracts, params, condorEval.mode]
   );
 
   // Observe container resize so canvas is always crisp and accurately measured
@@ -266,17 +318,48 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
     ctx.stroke();
     ctx.setLineDash([]);
 
+    // 3b. Optional Position Greek Sensitivity Curve Overlay (ThinkorSwim Risk Profile Style)
+    if (greekOverlay !== 'none') {
+      const sampleCount = 80;
+      const gVals: { px: number; val: number }[] = [];
+      let maxAbsG = 1e-6;
+      for (let i = 0; i <= sampleCount; i++) {
+        const px = padLeft + (i / sampleCount) * plotWidth;
+        const p = minPrice + (i / sampleCount) * (maxPrice - minPrice);
+        const val = evalGreekAtPrice(p);
+        gVals.push({ px, val });
+        if (Math.abs(val) > maxAbsG) maxAbsG = Math.abs(val);
+      }
+
+      const midY = padTop + plotHeight * 0.5;
+      const scaleY = (plotHeight * 0.38) / maxAbsG;
+
+      ctx.beginPath();
+      gVals.forEach((pt, idx) => {
+        const py = midY - pt.val * scaleY;
+        if (idx === 0) ctx.moveTo(pt.px, py);
+        else ctx.lineTo(pt.px, py);
+      });
+      ctx.strokeStyle = '#b388ff';
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+    }
+
     // 4. Collision-Free Multi-Tier Strike Marker Layout Engine
     // Collect active markers and sort left-to-right by price
     const rawMarkers: StrikeMarker[] = [];
     if (includePut) {
-      rawMarkers.push({ price: pl, shortLabel: 'LP', fullLabel: 'Long Put', color: '#26a69a', priority: 2 });
+      if (hasLongWings) {
+        rawMarkers.push({ price: pl, shortLabel: 'LP', fullLabel: 'Long Put', color: '#26a69a', priority: 2 });
+      }
       rawMarkers.push({ price: ps, shortLabel: 'SP', fullLabel: 'Short Put', color: '#36b37e', priority: 1 });
     }
     rawMarkers.push({ price: S0, shortLabel: 'SPOT', fullLabel: 'Spot', color: '#4c9aff', priority: 0 });
     if (includeCall) {
       rawMarkers.push({ price: cs, shortLabel: 'SC', fullLabel: 'Short Call', color: '#ff7452', priority: 1 });
-      rawMarkers.push({ price: cl, shortLabel: 'LC', fullLabel: 'Long Call', color: '#ff5630', priority: 2 });
+      if (hasLongWings) {
+        rawMarkers.push({ price: cl, shortLabel: 'LC', fullLabel: 'Long Call', color: '#ff5630', priority: 2 });
+      }
     }
 
     const visibleMarkers = rawMarkers
@@ -505,11 +588,58 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
     pl,
     includeCall,
     includePut,
+    hasLongWings,
     calcPnLExpiration,
     calcPnLToday,
+    greekOverlay,
+    evalGreekAtPrice,
     canvasSize,
-    hoveredData
+    hoveredData,
+    chartView
   ]);
+
+  // OptionStrat-style Price x Date P&L Heatmap Matrix computation
+  const heatmapData = useMemo(() => {
+    const colCount = Math.min(10, Math.max(4, params.dte + 1));
+    const dayColumns: { label: string; remYears: number; dayPassed: number }[] = [];
+    for (let c = 0; c < colCount; c++) {
+      const frac = c / (colCount - 1);
+      const dayPassed = Math.round(frac * params.dte * 10) / 10;
+      const remDte = Math.max(0, params.dte - dayPassed);
+      dayColumns.push({
+        label: c === 0 ? 'Today' : c === colCount - 1 ? 'Expiry' : `T+${dayPassed.toFixed(0)}d`,
+        remYears: remDte / 365,
+        dayPassed
+      });
+    }
+
+    const rowCount = 15;
+    const priceSpan = Math.max(params.strikeGap * 3, Math.round(stdDev * 1.4));
+    const topPrice = Math.round((S0 + priceSpan) / (params.strikeGap / 2 || 1)) * (params.strikeGap / 2 || 1);
+    const botPrice = Math.round((S0 - priceSpan) / (params.strikeGap / 2 || 1)) * (params.strikeGap / 2 || 1);
+    const step = (topPrice - botPrice) / (rowCount - 1);
+
+    const rows: {
+      price: number;
+      pctMove: number;
+      isSpotRow: boolean;
+      cells: { pnl: number; pctOfRisk: number }[];
+    }[] = [];
+
+    for (let r = 0; r < rowCount; r++) {
+      const price = Math.round((topPrice - r * step) * 100) / 100;
+      const pctMove = ((price - S0) / S0) * 100;
+      const isSpotRow = Math.abs(price - S0) <= step * 0.55;
+      const cells = dayColumns.map((col) => {
+        const pnl = calcPnLAtHorizon(price, col.remYears, simBaseIV);
+        const pctOfRisk = condorEval.maxLoss > 0 ? (pnl / condorEval.maxLoss) * 100 : 0;
+        return { pnl, pctOfRisk };
+      });
+      rows.push({ price, pctMove, isSpotRow, cells });
+    }
+
+    return { dayColumns, rows };
+  }, [params.dte, params.strikeGap, stdDev, S0, calcPnLAtHorizon, simBaseIV, condorEval.maxLoss]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -527,6 +657,7 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
         price,
         pnlExp: calcPnLExpiration(price),
         pnlNow: calcPnLToday(price),
+        greekVal: greekOverlay !== 'none' ? evalGreekAtPrice(price) : undefined,
         mouseX: x,
         mouseY: y
       });
@@ -535,31 +666,71 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
     }
   };
 
+  const hasWhatIfAdjustments = effectiveDaysElapsed > 0 || ivShock !== 0 || greekOverlay !== 'none';
+
   return (
-    <div className="md-card md-card--elevated" style={{ minHeight: 390, display: 'flex', flexDirection: 'column' }}>
-      <div className="md-card__header" style={{ marginBottom: 8, flexWrap: 'wrap', gap: 12 }}>
+    <div className="md-card md-card--elevated" style={{ minHeight: 430, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className="md-card__header" style={{ marginBottom: 0, flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <h3 className="md-card__title">
             <LineChart size={18} color="var(--md-sys-color-primary)" />
-            2D Payoff & Probability Density Curves
+            2D Payoff, Greeks & Time-Decay Matrix
           </h3>
+
+          {/* Primary View Mode Switcher: 2D Curves vs OptionStrat Price x Date Heatmap */}
           <div className="md-segmented-button">
             <button
-              className={`md-segmented-button__segment ${zoomMode === 'focus' ? 'md-segmented-button__segment--active' : ''}`}
-              onClick={() => setZoomMode('focus')}
-              title="Focus around active strikes and ±1.8σ expected move"
+              className={`md-segmented-button__segment ${chartView === 'curve' ? 'md-segmented-button__segment--active' : ''}`}
+              onClick={() => setChartView('curve')}
             >
-              <ZoomIn size={12} style={{ marginRight: 4 }} />
-              Focus (±1.8σ)
+              <LineChart size={12} style={{ marginRight: 4 }} />
+              Payoff & Greeks Curve
             </button>
             <button
-              className={`md-segmented-button__segment ${zoomMode === 'wide' ? 'md-segmented-button__segment--active' : ''}`}
-              onClick={() => setZoomMode('wide')}
-              title="Wide tail view (±3.2σ)"
+              className={`md-segmented-button__segment ${chartView === 'heatmap' ? 'md-segmented-button__segment--active' : ''}`}
+              onClick={() => setChartView('heatmap')}
             >
-              Wide (±3.2σ)
+              <Grid size={12} style={{ marginRight: 4 }} />
+              Price × Date Heatmap
             </button>
           </div>
+
+          {chartView === 'curve' && (
+            <div className="md-segmented-button">
+              <button
+                className={`md-segmented-button__segment ${zoomMode === 'focus' ? 'md-segmented-button__segment--active' : ''}`}
+                onClick={() => setZoomMode('focus')}
+                title="Focus around active strikes and ±1.8σ expected move"
+              >
+                <ZoomIn size={12} style={{ marginRight: 4 }} />
+                Focus (±1.8σ)
+              </button>
+              <button
+                className={`md-segmented-button__segment ${zoomMode === 'wide' ? 'md-segmented-button__segment--active' : ''}`}
+                onClick={() => setZoomMode('wide')}
+                title="Wide tail view (±3.2σ)"
+              >
+                Wide (±3.2σ)
+              </button>
+            </div>
+          )}
+
+          {chartView === 'heatmap' && (
+            <div className="md-segmented-button">
+              <button
+                className={`md-segmented-button__segment ${heatmapUnit === 'dollar' ? 'md-segmented-button__segment--active' : ''}`}
+                onClick={() => setHeatmapUnit('dollar')}
+              >
+                $ P&L
+              </button>
+              <button
+                className={`md-segmented-button__segment ${heatmapUnit === 'pct' ? 'md-segmented-button__segment--active' : ''}`}
+                onClick={() => setHeatmapUnit('pct')}
+              >
+                % Return on Risk
+              </button>
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: 16, fontSize: 12, flexWrap: 'wrap' }}>
@@ -569,97 +740,279 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ width: 12, height: 3, borderTop: '2px dashed #4c9aff', display: 'inline-block' }} />
-            <span>Today (T=0)</span>
+            <span>{effectiveDaysElapsed > 0 ? `T+${effectiveDaysElapsed.toFixed(1)}d (${simDteRemaining.toFixed(1)}d rem)` : 'Today (T=0)'}</span>
           </div>
+          {greekOverlay !== 'none' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 12, height: 3, backgroundColor: '#b388ff', display: 'inline-block' }} />
+              <span style={{ textTransform: 'capitalize', color: '#b388ff', fontWeight: 600 }}>Net {greekOverlay}</span>
+            </div>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ width: 12, height: 8, backgroundColor: 'rgba(76, 154, 255, 0.25)', display: 'inline-block' }} />
-            <span>Probability Density (±1σ Zone)</span>
+            <span>±1σ Zone</span>
           </div>
         </div>
       </div>
 
-      <div ref={containerRef} style={{ position: 'relative', flex: 1, minHeight: 300 }}>
-        <canvas
-          ref={canvasRef}
-          style={{ width: '100%', height: '100%', display: 'block', cursor: 'crosshair' }}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={() => setHoveredData(null)}
-        />
+      {/* Interactive What-If Scenario Scrubbers (Time Decay, IV Shock & Greek Profile Selector) */}
+      <div
+        className="md-card md-card--tonal"
+        style={{
+          padding: '8px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 16,
+          fontSize: 12
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '1 1 210px' }}>
+          <label htmlFor="whatif-dte-slider" className="label-small" style={{ whiteSpace: 'nowrap', color: 'var(--md-sys-color-on-surface-variant)' }}>
+            Time Scrub: <strong className="mono-small" style={{ color: 'var(--md-sys-color-primary)' }}>T+{effectiveDaysElapsed.toFixed(1)}d</strong> ({simDteRemaining.toFixed(1)} DTE)
+          </label>
+          <input
+            id="whatif-dte-slider"
+            name="daysElapsed"
+            type="range"
+            min="0"
+            max={Math.max(0.5, params.dte - 0.25)}
+            step="0.25"
+            value={effectiveDaysElapsed}
+            onChange={(e) => setDaysElapsed(parseFloat(e.target.value) || 0)}
+            style={{ flex: 1, accentColor: 'var(--md-sys-color-primary)', cursor: 'pointer' }}
+          />
+        </div>
 
-        {hoveredData && (() => {
-          const tooltipWidth = 210;
-          const tooltipHeight = 98;
-          const flipX = hoveredData.mouseX + tooltipWidth + 24 > canvasSize.width;
-          const left = flipX
-            ? Math.max(10, hoveredData.mouseX - tooltipWidth - 14)
-            : Math.min(canvasSize.width - tooltipWidth - 10, hoveredData.mouseX + 16);
-          const top = Math.max(8, Math.min(canvasSize.height - tooltipHeight - 8, hoveredData.mouseY - 45));
-          const diffFromSpot = hoveredData.price - S0;
-          const pctFromSpot = (diffFromSpot / S0) * 100;
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '1 1 210px' }}>
+          <label htmlFor="whatif-iv-slider" className="label-small" style={{ whiteSpace: 'nowrap', color: 'var(--md-sys-color-on-surface-variant)' }}>
+            IV Shock: <strong className="mono-small" style={{ color: ivShock >= 0 ? 'var(--md-sys-color-tertiary)' : 'var(--md-sys-color-secondary)' }}>{ivShock >= 0 ? '+' : ''}{(ivShock * 100).toFixed(0)}%</strong> ({(simBaseIV * 100).toFixed(1)}%)
+          </label>
+          <input
+            id="whatif-iv-slider"
+            name="ivShock"
+            type="range"
+            min="-0.15"
+            max="0.25"
+            step="0.01"
+            value={ivShock}
+            onChange={(e) => setIvShock(parseFloat(e.target.value) || 0)}
+            style={{ flex: 1, accentColor: 'var(--md-sys-color-tertiary)', cursor: 'pointer' }}
+          />
+        </div>
 
-          return (
-            <div
-              className="md-card"
-              style={{
-                position: 'absolute',
-                left: `${left}px`,
-                top: `${top}px`,
-                width: `${tooltipWidth}px`,
-                padding: '8px 12px',
-                fontSize: 12,
-                pointerEvents: 'none',
-                zIndex: 10,
-                backgroundColor: 'color-mix(in srgb, var(--md-sys-color-surface-container-high) 92%, transparent)',
-                backdropFilter: 'blur(10px)',
-                WebkitBackdropFilter: 'blur(10px)',
-                boxShadow: 'var(--md-sys-elevation-level3)',
-                border: '1px solid var(--md-sys-color-outline-variant)',
-                borderRadius: '8px',
-                transition: 'transform 0.04s ease-out'
-              }}
+        {chartView === 'curve' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label htmlFor="whatif-greek-overlay" className="label-small" style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
+              Greek Curve:
+            </label>
+            <select
+              id="whatif-greek-overlay"
+              name="greekOverlay"
+              className="md-select"
+              style={{ height: 28, fontSize: 11, padding: '0 8px', borderRadius: 6 }}
+              value={greekOverlay}
+              onChange={(e) => setGreekOverlay(e.target.value as GreekOverlayType)}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
-                <span className="mono-small" style={{ fontSize: 13, fontWeight: 700, color: 'var(--md-sys-color-on-surface)' }}>
-                  ${hoveredData.price.toFixed(2)}
-                </span>
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 600,
-                    color: diffFromSpot >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)'
-                  }}
-                >
-                  {diffFromSpot >= 0 ? '+' : ''}${diffFromSpot.toFixed(2)} ({diffFromSpot >= 0 ? '+' : ''}{pctFromSpot.toFixed(2)}%)
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-                <span style={{ color: 'var(--md-sys-color-on-surface-variant)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: hoveredData.pnlExp >= 0 ? '#00a86b' : '#ff5630', display: 'inline-block' }} />
-                  At Expiration:
-                </span>
-                <span
-                  className="mono-small"
-                  style={{ fontWeight: 700, color: hoveredData.pnlExp >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)' }}
-                >
-                  {hoveredData.pnlExp >= 0 ? '+' : ''}{formatCurrency(hoveredData.pnlExp)}
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: 'var(--md-sys-color-on-surface-variant)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: '#4c9aff', display: 'inline-block' }} />
-                  Today (T=0):
-                </span>
-                <span
-                  className="mono-small"
-                  style={{ fontWeight: 700, color: hoveredData.pnlNow >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)' }}
-                >
-                  {hoveredData.pnlNow >= 0 ? '+' : ''}{formatCurrency(hoveredData.pnlNow)}
-                </span>
-              </div>
-            </div>
-          );
-        })()}
+              <option value="none">None (P&L Only)</option>
+              <option value="delta">Δ Net Delta</option>
+              <option value="gamma">Γ Net Gamma</option>
+              <option value="theta">Θ Net Theta ($/d)</option>
+              <option value="vega">ν Net Vega ($/%)</option>
+              <option value="charm">Charm (dΔ/dDay)</option>
+            </select>
+          </div>
+        )}
+
+        {hasWhatIfAdjustments && (
+          <button
+            type="button"
+            className="md-button md-button--text"
+            style={{ height: 26, padding: '0 8px', fontSize: 11 }}
+            onClick={() => {
+              setDaysElapsed(0);
+              setIvShock(0);
+              setGreekOverlay('none');
+            }}
+          >
+            <RotateCcw size={12} />
+            <span>Reset What-If</span>
+          </button>
+        )}
       </div>
+
+      {chartView === 'curve' ? (
+        <div ref={containerRef} style={{ position: 'relative', flex: 1, minHeight: 300 }}>
+          <canvas
+            ref={canvasRef}
+            style={{ width: '100%', height: '100%', display: 'block', cursor: 'crosshair' }}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={() => setHoveredData(null)}
+          />
+
+          {hoveredData && (() => {
+            const tooltipWidth = 220;
+            const tooltipHeight = hoveredData.greekVal !== undefined ? 118 : 98;
+            const flipX = hoveredData.mouseX + tooltipWidth + 24 > canvasSize.width;
+            const left = flipX
+              ? Math.max(10, hoveredData.mouseX - tooltipWidth - 14)
+              : Math.min(canvasSize.width - tooltipWidth - 10, hoveredData.mouseX + 16);
+            const top = Math.max(8, Math.min(canvasSize.height - tooltipHeight - 8, hoveredData.mouseY - 45));
+            const diffFromSpot = hoveredData.price - S0;
+            const pctFromSpot = (diffFromSpot / S0) * 100;
+
+            return (
+              <div
+                className="md-card"
+                style={{
+                  position: 'absolute',
+                  left: `${left}px`,
+                  top: `${top}px`,
+                  width: `${tooltipWidth}px`,
+                  padding: '8px 12px',
+                  fontSize: 12,
+                  pointerEvents: 'none',
+                  zIndex: 10,
+                  backgroundColor: 'color-mix(in srgb, var(--md-sys-color-surface-container-high) 92%, transparent)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  boxShadow: 'var(--md-sys-elevation-level3)',
+                  border: '1px solid var(--md-sys-color-outline-variant)',
+                  borderRadius: '8px',
+                  transition: 'transform 0.04s ease-out'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
+                  <span className="mono-small" style={{ fontSize: 13, fontWeight: 700, color: 'var(--md-sys-color-on-surface)' }}>
+                    ${hoveredData.price.toFixed(2)}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: diffFromSpot >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)'
+                    }}
+                  >
+                    {diffFromSpot >= 0 ? '+' : ''}${diffFromSpot.toFixed(2)} ({diffFromSpot >= 0 ? '+' : ''}{pctFromSpot.toFixed(2)}%)
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                  <span style={{ color: 'var(--md-sys-color-on-surface-variant)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: hoveredData.pnlExp >= 0 ? '#00a86b' : '#ff5630', display: 'inline-block' }} />
+                    At Expiration:
+                  </span>
+                  <span
+                    className="mono-small"
+                    style={{ fontWeight: 700, color: hoveredData.pnlExp >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)' }}
+                  >
+                    {hoveredData.pnlExp >= 0 ? '+' : ''}{formatCurrency(hoveredData.pnlExp)}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--md-sys-color-on-surface-variant)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: '#4c9aff', display: 'inline-block' }} />
+                    {effectiveDaysElapsed > 0 ? `T+${effectiveDaysElapsed.toFixed(1)}d:` : 'Today (T=0):'}
+                  </span>
+                  <span
+                    className="mono-small"
+                    style={{ fontWeight: 700, color: hoveredData.pnlNow >= 0 ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)' }}
+                  >
+                    {hoveredData.pnlNow >= 0 ? '+' : ''}{formatCurrency(hoveredData.pnlNow)}
+                  </span>
+                </div>
+                {hoveredData.greekVal !== undefined && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 3, paddingTop: 3, borderTop: '1px solid var(--md-sys-color-outline-variant)' }}>
+                    <span style={{ color: '#b388ff', fontSize: 11, textTransform: 'capitalize', fontWeight: 600 }}>
+                      Net {greekOverlay}:
+                    </span>
+                    <span className="mono-small" style={{ fontWeight: 700, color: '#b388ff' }}>
+                      {hoveredData.greekVal >= 0 ? '+' : ''}{hoveredData.greekVal.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      ) : (
+        /* OptionStrat-Style Price x Date P&L Heatmap Matrix */
+        <div className="md-table-container" style={{ maxHeight: 380, overflowY: 'auto' }}>
+          <table className="md-table" style={{ fontSize: 11, borderCollapse: 'separate', borderSpacing: 2 }}>
+            <thead>
+              <tr>
+                <th style={{ position: 'sticky', left: 0, zIndex: 2, backgroundColor: 'var(--md-sys-color-surface-container)' }}>
+                  Price / Move
+                </th>
+                {heatmapData.dayColumns.map((col, idx) => (
+                  <th key={idx} style={{ textAlign: 'center', padding: '6px 8px' }}>
+                    {col.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {heatmapData.rows.map((row, rIdx) => (
+                <tr key={rIdx}>
+                  <td
+                    className="mono-small"
+                    style={{
+                      position: 'sticky',
+                      left: 0,
+                      zIndex: 1,
+                      fontWeight: row.isSpotRow ? 700 : 500,
+                      backgroundColor: row.isSpotRow
+                        ? 'var(--md-sys-color-primary-container)'
+                        : 'var(--md-sys-color-surface-container)',
+                      color: row.isSpotRow
+                        ? 'var(--md-sys-color-on-primary-container)'
+                        : 'var(--md-sys-color-on-surface)',
+                      padding: '4px 8px',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    ${row.price.toFixed(1)}{' '}
+                    <span style={{ fontSize: 9, opacity: 0.75 }}>
+                      ({row.pctMove >= 0 ? '+' : ''}{row.pctMove.toFixed(1)}%)
+                    </span>
+                  </td>
+                  {row.cells.map((cell, cIdx) => {
+                    const isPos = cell.pnl >= 0;
+                    const ratio = isPos
+                      ? Math.min(1, cell.pnl / Math.max(1, condorEval.maxGain))
+                      : Math.min(1, Math.abs(cell.pnl) / Math.max(1, condorEval.maxLoss));
+                    const alpha = (0.12 + 0.52 * ratio).toFixed(2);
+                    const bg = isPos
+                      ? `rgba(0, 168, 107, ${alpha})`
+                      : `rgba(255, 86, 48, ${alpha})`;
+
+                    return (
+                      <td
+                        key={cIdx}
+                        className="mono-small"
+                        style={{
+                          backgroundColor: bg,
+                          color: 'var(--md-sys-color-on-surface)',
+                          textAlign: 'center',
+                          padding: '5px 6px',
+                          borderRadius: 4,
+                          fontWeight: 600,
+                          fontSize: 11
+                        }}
+                        title={`Price: $${row.price.toFixed(2)} | ${heatmapData.dayColumns[cIdx].label}: ${formatCurrency(cell.pnl)} (${cell.pctOfRisk.toFixed(1)}% of max risk)`}
+                      >
+                        {heatmapUnit === 'dollar'
+                          ? `${cell.pnl >= 0 ? '+' : ''}$${Math.round(cell.pnl).toLocaleString()}`
+                          : `${cell.pctOfRisk >= 0 ? '+' : ''}${cell.pctOfRisk.toFixed(0)}%`}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 };

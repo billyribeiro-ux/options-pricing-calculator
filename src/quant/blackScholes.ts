@@ -1,5 +1,5 @@
 import { normalPdf, normalCdf } from './distributions';
-import { OptionType } from './types';
+import { OptionType, UnderlyingParams } from './types';
 
 export interface BSResult {
   price: number;
@@ -10,10 +10,32 @@ export interface BSResult {
   rho: number;   // per 1% rate shift (0.01)
   vanna: number; // dDelta / dVol per 1% IV shift
   volga: number; // dVega / dVol per 1% IV shift
+  charm: number; // dDelta / dTime per calendar day
+  speed: number; // dGamma / dSpot
+  color: number; // dGamma / dTime per calendar day
   d1: number;
   d2: number;
   intrinsicValue: number;
   extrinsicValue: number;
+}
+
+/**
+ * Evaluates strike-specific implied volatility under parametric SVI equity smirk.
+ * When skewSlope = 0 (default), returns flat atmIV for 100% Excel parity.
+ * When skewSlope > 0, OTM puts exhibit elevated IV and OTM calls exhibit curvature smile.
+ */
+export function getStrikeIV(
+  strike: number,
+  S0: number,
+  atmIV: number,
+  skewSlope = 0
+): number {
+  if (!skewSlope || skewSlope === 0 || S0 <= 0) {
+    return atmIV;
+  }
+  const moneyness = (strike - S0) / S0; // negative for OTM puts, positive for OTM calls
+  const skewAdj = -skewSlope * moneyness + 0.65 * skewSlope * moneyness * moneyness;
+  return Math.max(0.02, atmIV + skewAdj);
 }
 
 /**
@@ -44,7 +66,7 @@ export function calculateD1D2(
 }
 
 /**
- * Full Black-Scholes-Merton option pricing and analytical Greeks
+ * Full Black-Scholes-Merton option pricing and analytical 1st, 2nd, and 3rd-order Greeks
  */
 export function blackScholes(
   type: OptionType,
@@ -66,6 +88,9 @@ export function blackScholes(
       rho: 0,
       vanna: 0,
       volga: 0,
+      charm: 0,
+      speed: 0,
+      color: 0,
       d1: 0,
       d2: 0,
       intrinsicValue: intrinsic,
@@ -106,6 +131,26 @@ export function blackScholes(
   const vanna = sigma > 0 ? (-eqT * pdfD1 * (d2 / sigma)) * 0.01 : 0;
   const volga = sigma > 0 ? vega * ((d1 * d2) / sigma) * 0.01 : 0;
 
+  // Higher-Order Time & Spot Greeks (Charm, Speed, Color)
+  const driftRatio = (2 * (r - q) * T - d2 * sigma * sqrtT) / (2 * T * sigma * sqrtT);
+  const charmAnnual =
+    type === 'call'
+      ? -q * eqT * normalCdf(d1) + eqT * pdfD1 * driftRatio
+      : q * eqT * normalCdf(-d1) + eqT * pdfD1 * driftRatio;
+  // Daily delta change as 1 calendar day passes (-dDelta/dT / 365)
+  const charm = -charmAnnual / 365;
+
+  // Speed: dGamma / dSpot
+  const speed = S > 0 && sigma > 0 ? -(gamma / S) * (d1 / (sigma * sqrtT) + 1) : 0;
+
+  // Color: dGamma / dTime per calendar day
+  const colorAnnual =
+    S > 0 && sigma > 0
+      ? (-eqT * pdfD1 / (2 * S * T * sigma * sqrtT)) *
+        (2 * q * T + 1 + ((2 * (r - q) * T - d2 * sigma * sqrtT) / (sigma * sqrtT)) * d1)
+      : 0;
+  const color = -colorAnnual / 365;
+
   let thetaAnnual: number;
   let rhoTotal: number;
 
@@ -130,11 +175,47 @@ export function blackScholes(
     rho,
     vanna,
     volga,
+    charm,
+    speed,
+    color,
     d1,
     d2,
     intrinsicValue,
     extrinsicValue
   };
+}
+
+/**
+ * Finds the optimal OTM strike matching a target absolute Delta (e.g. 0.10, 0.16, 0.20, 0.30),
+ * snapped to the nearest strike step or $1 increment.
+ */
+export function findStrikeByDelta(
+  type: OptionType,
+  targetAbsDelta: number,
+  params: UnderlyingParams
+): number {
+  const S0 = params.spotPrice;
+  const T = Math.max(0.001, params.dte / 365);
+  const step = params.strikeGap >= 1 ? Math.min(params.strikeGap, 5) : params.strikeGap || 1;
+  const anchor = Math.round(S0 / step) * step;
+
+  let bestStrike = type === 'call' ? anchor + step : anchor - step;
+  let minDiff = Infinity;
+
+  for (let i = 1; i <= 40; i++) {
+    const candidate = type === 'call' ? anchor + i * step : anchor - i * step;
+    if (candidate <= 0) continue;
+    const sigma = getStrikeIV(candidate, S0, params.atmIV, params.skewSlope);
+    const bs = blackScholes(type, S0, candidate, T, sigma, params.riskFreeRate, params.dividendYield);
+    const absDelta = Math.abs(bs.delta);
+    const diff = Math.abs(absDelta - targetAbsDelta);
+    if (diff < minDiff) {
+      minDiff = diff;
+      bestStrike = candidate;
+    }
+  }
+
+  return bestStrike;
 }
 
 /**

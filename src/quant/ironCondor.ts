@@ -1,6 +1,7 @@
 import { IronCondorEvaluation, StrategyMode, UnderlyingParams } from './types';
-import { evaluateSpread } from './expectations';
+import { evaluateSpread, probITMDriftless } from './expectations';
 import { calculateIronCondorGreeks } from './greeks';
+import { getStrikeIV } from './blackScholes';
 
 export function evaluateIronCondor(
   callShort: number,
@@ -15,11 +16,15 @@ export function evaluateIronCondor(
   const contracts = params.contracts;
   const multiplier = contracts * 100;
 
-  const callSpread = evaluateSpread('call', callShort, callLong, callCredit, params);
-  const putSpread = evaluateSpread('put', putShort, putLong, putCredit, params);
+  // For Short Strangle, long hedge wings are effectively synthetic wide wings (20% OTM) for BPR/risk bounding
+  const effectiveCallLong = mode === 'short-strangle' ? Math.round(params.spotPrice * 1.2) : callLong;
+  const effectivePutLong = mode === 'short-strangle' ? Math.round(params.spotPrice * 0.8) : putLong;
 
-  const callWidth = Math.abs(callLong - callShort);
-  const putWidth = Math.abs(putLong - putShort);
+  const callSpread = evaluateSpread('call', callShort, effectiveCallLong, callCredit, params);
+  const putSpread = evaluateSpread('put', putShort, effectivePutLong, putCredit, params);
+
+  const callWidth = Math.abs(effectiveCallLong - callShort);
+  const putWidth = Math.abs(effectivePutLong - putShort);
 
   let totalCreditPerShare: number;
   let totalCreditDollars: number;
@@ -58,21 +63,38 @@ export function evaluateIronCondor(
     exactCombinedEV = putSpread.exactEV;
     exactRewardRisk = putSpread.exactRewardRisk;
   } else {
+    // Iron Condor, Iron Butterfly, or Short Strangle
     totalCreditPerShare = callCredit + putCredit;
     totalCreditDollars = totalCreditPerShare * multiplier;
     const maxSpreadWidth = Math.max(callWidth, putWidth);
 
-    // In an Iron Condor, only one side can be at maximum loss at expiration.
+    // In an Iron Condor / Iron Butterfly, only one side can be at maximum loss at expiration.
     // The credit collected from BOTH wings reduces the loss.
-    marginRequired = maxSpreadWidth * multiplier;
+    marginRequired =
+      mode === 'short-strangle'
+        ? Math.round(params.spotPrice * 0.2 * multiplier) // Reg-T ~20% naked strangle BPR
+        : maxSpreadWidth * multiplier;
     maxGain = totalCreditDollars;
-    maxLoss = Math.max(0, (maxSpreadWidth - totalCreditPerShare) * multiplier);
+    maxLoss =
+      mode === 'short-strangle'
+        ? Math.max(0, (maxSpreadWidth - totalCreditPerShare) * multiplier)
+        : Math.max(0, (maxSpreadWidth - totalCreditPerShare) * multiplier);
 
     breakevenLow = putShort - totalCreditPerShare;
     breakevenHigh = callShort + totalCreditPerShare;
 
-    // Probability of full profit: stock finishes between putShort and callShort
-    probMaxProfit = Math.max(0, 1 - callSpread.probITM - putSpread.probITM);
+    // For Iron Butterfly (where putShort === callShort), probability of finishing inside breakevens is used for POP
+    if (callShort <= putShort) {
+      const skew = params.skewSlope ?? 0;
+      const beHighIV = getStrikeIV(breakevenHigh, params.spotPrice, params.atmIV, skew);
+      const beLowIV = getStrikeIV(breakevenLow, params.spotPrice, params.atmIV, skew);
+      const pAboveHigh = probITMDriftless('call', params.spotPrice, breakevenHigh, beHighIV, params.dte);
+      const pBelowLow = probITMDriftless('put', params.spotPrice, breakevenLow, beLowIV, params.dte);
+      probMaxProfit = Math.max(0, 1 - pAboveHigh - pBelowLow);
+    } else {
+      // Probability of full profit: stock finishes between putShort and callShort
+      probMaxProfit = Math.max(0, 1 - callSpread.probITM - putSpread.probITM);
+    }
 
     // Combined Excel Model EV (isolated sums matching row 16)
     excelCombinedEV = callSpread.excelEV + putSpread.excelEV;
@@ -87,12 +109,15 @@ export function evaluateIronCondor(
   const returnOnMargin = marginRequired > 0 ? maxGain / marginRequired : Infinity;
   const probAnyLoss = 1 - probMaxProfit;
 
+  // POP50: Probability of reaching 50% max profit prior to expiration via barrier reflection scaling
+  const prob50Profit = Math.min(0.995, 1 - Math.pow(Math.max(0.005, 1 - probMaxProfit), 1.65));
+
   // Risk-adjusted Kelly Criterion fraction based on continuous expected value:
   // If EV > 0, optimal risk allocation scales with edge over max potential loss
   const kellyFraction = maxGain > 0 ? Math.max(0, Math.min(1, exactCombinedEV / maxGain)) : 0;
 
   // Complete Greeks across active legs
-  const greeks = calculateIronCondorGreeks(callShort, callLong, putShort, putLong, contracts, params, mode);
+  const greeks = calculateIronCondorGreeks(callShort, effectiveCallLong, putShort, effectivePutLong, contracts, params, mode);
 
   return {
     mode,
@@ -109,6 +134,7 @@ export function evaluateIronCondor(
     returnOnMargin,
     kellyFraction,
     probMaxProfit,
+    prob50Profit,
     probAnyLoss,
     excelCombinedEV,
     exactCombinedEV,

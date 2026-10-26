@@ -1,6 +1,6 @@
 export type OptionType = 'call' | 'put';
 export type Position = 'buy' | 'sell';
-export type StrategyMode = 'iron-condor' | 'call-spread' | 'put-spread';
+export type StrategyMode = 'iron-condor' | 'iron-butterfly' | 'short-strangle' | 'call-spread' | 'put-spread';
 
 export interface OptionLeg {
   id: string;
@@ -23,6 +23,7 @@ export interface UnderlyingParams {
   strikeGap: number; // Default strike gap, e.g. 5
   atmStraddleAsk?: number; // Optional ATM straddle ask side, e.g. 6.80
   straddleFactor?: number; // Default 0.85
+  skewSlope?: number; // Default 0 (Flat Excel parity); > 0 enables SVI equity volatility smirk
 }
 
 export interface VolatilityBands {
@@ -43,6 +44,9 @@ export interface GreeksResult {
   rho: number;   // Per 1% interest rate change
   vanna: number; // dDelta / dVol per 1% IV change
   volga: number; // dVega / dVol per 1% IV change
+  charm: number; // dDelta / dTime per calendar day (Delta Bleed)
+  speed: number; // dGamma / dSpot (Gamma Acceleration)
+  color: number; // dGamma / dTime per calendar day
 }
 
 export interface SpreadEvaluation {
@@ -91,6 +95,7 @@ export interface IronCondorEvaluation {
   
   // Probability metrics
   probMaxProfit: number; // Stock finishes in max profit zone
+  prob50Profit: number;  // POP50: Probability of touching 50% max profit before expiry
   probAnyLoss: number;
   
   // Expected values
@@ -106,6 +111,8 @@ export interface StrikeMatrixRow {
   isSelected: boolean;
   probITM: number; // P(S > K) for calls, P(S < K) for puts
   probTouch: number; // 2 * probITM
+  strikeIV: number; // Strike-specific Implied Volatility
+  shortDelta: number; // Black-Scholes Delta of short strike
   excelGain: number;
   excelPain: number;
   excelEV: number;

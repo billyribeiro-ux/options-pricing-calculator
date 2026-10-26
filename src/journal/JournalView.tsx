@@ -18,7 +18,11 @@ import { Journal3DLandscape } from './components/Journal3DLandscape';
 import { BookOpen, Plus, Upload, Mountain, PieChart } from 'lucide-react';
 import { formatCurrency, formatPercent } from '../utils/formatters';
 
-export const JournalView: React.FC = () => {
+interface JournalViewProps {
+  onLoadIntoCalculator?: (trade: JournalEntry) => void;
+}
+
+export const JournalView: React.FC<JournalViewProps> = ({ onLoadIntoCalculator }) => {
   const [entries, setEntries] = useState<JournalEntry[]>(() => getJournalEntries());
   const [subView, setSubView] = useState<'overview' | '3d' | 'analytics'>('overview');
   const [selectedTrade, setSelectedTrade] = useState<JournalEntry | null>(null);
@@ -161,33 +165,89 @@ export const JournalView: React.FC = () => {
                 No closed trades yet. Close an open trade or log a completed trade to view equity progression.
               </div>
             ) : (
-              <div style={{ overflowX: 'auto', width: '100%', minWidth: 0, paddingBottom: 8 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${equityCurve.length}, minmax(65px, 1fr))`, gap: 8, alignItems: 'end', minHeight: 150, paddingTop: 12, minWidth: equityCurve.length * 70 }}>
-                  {equityCurve.map((pt, idx) => {
-                    const maxEq = Math.max(...equityCurve.map((e) => Math.abs(e.cumulativeEquity)), 100);
-                    const heightPct = Math.max(12, Math.min(100, (Math.abs(pt.cumulativeEquity) / maxEq) * 100));
-                    const isPos = pt.cumulativeEquity >= 0;
-                    return (
-                      <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                        <span className="mono-small" style={{ fontSize: 11, color: isPos ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)', fontWeight: 700 }}>
-                          {formatCurrency(pt.cumulativeEquity, 0)}
-                        </span>
-                        <div
-                          style={{
-                            width: '100%',
-                            height: `${heightPct * 0.9}px`,
-                            minHeight: 14,
-                            borderRadius: '6px 6px 2px 2px',
-                            backgroundColor: isPos ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)',
-                            opacity: 0.85
-                          }}
-                          title={`${pt.date} (${pt.symbol}): Trade P&L ${formatCurrency(pt.tradePnL)} | Cumulative: ${formatCurrency(pt.cumulativeEquity)} | Drawdown: -${formatCurrency(pt.drawdown)}`}
-                        />
-                        <span className="label-small" style={{ fontSize: 10 }}>{pt.symbol}</span>
-                        <span style={{ fontSize: 9, color: 'var(--md-sys-color-outline)' }}>{pt.date.slice(5)}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {/* Continuous Area Equity & Underwater Drawdown SVG Chart */}
+                {(() => {
+                  const pts = [{ date: 'Start', symbol: 'INIT', tradePnL: 0, cumulativeEquity: 0, drawdown: 0 }, ...equityCurve];
+                  const maxEq = Math.max(100, ...pts.map((p) => p.cumulativeEquity));
+                  const minEq = Math.min(0, ...pts.map((p) => p.cumulativeEquity));
+                  const range = Math.max(100, maxEq - minEq);
+                  const w = 800;
+                  const h = 160;
+                  const padX = 24;
+                  const padY = 18;
+                  const plotW = w - padX * 2;
+                  const plotH = h - padY * 2;
+
+                  const toX = (i: number) => padX + (i / Math.max(1, pts.length - 1)) * plotW;
+                  const toY = (val: number) => padY + ((maxEq - val) / range) * plotH;
+                  const zeroY = toY(0);
+
+                  const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(i).toFixed(1)} ${toY(p.cumulativeEquity).toFixed(1)}`).join(' ');
+                  const areaPath = `${linePath} L ${toX(pts.length - 1).toFixed(1)} ${zeroY.toFixed(1)} L ${toX(0).toFixed(1)} ${zeroY.toFixed(1)} Z`;
+
+                  return (
+                    <div className="md-card md-card--tonal" style={{ padding: '12px 16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--md-sys-color-on-surface-variant)', marginBottom: 4 }}>
+                        <span>Peak Realized Equity: <strong className="mono-small" style={{ color: 'var(--quant-color-gain)' }}>{formatCurrency(maxEq)}</strong></span>
+                        <span>Max Drawdown: <strong className="mono-small" style={{ color: 'var(--quant-color-loss)' }}>-{formatCurrency(kpis.maxDrawdownDollars)} ({kpis.maxDrawdownPercent.toFixed(1)}%)</strong></span>
                       </div>
-                    );
-                  })}
+                      <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 150, display: 'block', overflow: 'visible' }}>
+                        <defs>
+                          <linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#00a86b" stopOpacity="0.38" />
+                            <stop offset="100%" stopColor="#00a86b" stopOpacity="0.02" />
+                          </linearGradient>
+                        </defs>
+                        <line x1={padX} y1={zeroY} x2={w - padX} y2={zeroY} stroke="rgba(150,160,175,0.3)" strokeDasharray="4 4" />
+                        <path d={areaPath} fill="url(#eqGrad)" />
+                        <path d={linePath} fill="none" stroke="#00a86b" strokeWidth="2.5" />
+                        {pts.map((p, i) => (
+                          <circle
+                            key={i}
+                            cx={toX(i)}
+                            cy={toY(p.cumulativeEquity)}
+                            r={4}
+                            fill={p.tradePnL >= 0 ? '#00a86b' : '#ff5630'}
+                            stroke="#111318"
+                            strokeWidth="1.5"
+                          >
+                            <title>{`${p.date} (${p.symbol}): Trade ${formatCurrency(p.tradePnL)} | Cumulative: ${formatCurrency(p.cumulativeEquity)} | Drawdown: -${formatCurrency(p.drawdown)}`}</title>
+                          </circle>
+                        ))}
+                      </svg>
+                    </div>
+                  );
+                })()}
+
+                <div style={{ overflowX: 'auto', width: '100%', minWidth: 0, paddingBottom: 8 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${equityCurve.length}, minmax(65px, 1fr))`, gap: 8, alignItems: 'end', minHeight: 130, paddingTop: 8, minWidth: equityCurve.length * 70 }}>
+                    {equityCurve.map((pt, idx) => {
+                      const maxEq = Math.max(...equityCurve.map((e) => Math.abs(e.cumulativeEquity)), 100);
+                      const heightPct = Math.max(12, Math.min(100, (Math.abs(pt.cumulativeEquity) / maxEq) * 100));
+                      const isPos = pt.cumulativeEquity >= 0;
+                      return (
+                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                          <span className="mono-small" style={{ fontSize: 11, color: isPos ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)', fontWeight: 700 }}>
+                            {formatCurrency(pt.cumulativeEquity, 0)}
+                          </span>
+                          <div
+                            style={{
+                              width: '100%',
+                              height: `${heightPct * 0.8}px`,
+                              minHeight: 14,
+                              borderRadius: '6px 6px 2px 2px',
+                              backgroundColor: isPos ? 'var(--quant-color-gain)' : 'var(--quant-color-loss)',
+                              opacity: 0.85
+                            }}
+                            title={`${pt.date} (${pt.symbol}): Trade P&L ${formatCurrency(pt.tradePnL)} | Cumulative: ${formatCurrency(pt.cumulativeEquity)} | Drawdown: -${formatCurrency(pt.drawdown)}`}
+                          />
+                          <span className="label-small" style={{ fontSize: 10 }}>{pt.symbol}</span>
+                          <span style={{ fontSize: 9, color: 'var(--md-sys-color-outline)' }}>{pt.date.slice(5)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
@@ -321,6 +381,7 @@ export const JournalView: React.FC = () => {
         onUpdateTrade={handleSaveNewTrade}
         onEditTrade={handleOpenEditTrade}
         onDeleteTrade={handleDeleteTrade}
+        onLoadIntoCalculator={onLoadIntoCalculator}
       />
 
       <NewTradeModal

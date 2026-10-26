@@ -1,5 +1,5 @@
-import React from 'react';
-import { Sun, Moon, Upload, RotateCcw, Command, Zap } from 'lucide-react';
+import React, { useState } from 'react';
+import { Sun, Moon, Upload, RotateCcw, Command, Zap, Share2, Check } from 'lucide-react';
 import { UnderlyingParams } from '../quant/types';
 import { formatCurrency, formatPercent } from '../utils/formatters';
 
@@ -11,6 +11,7 @@ interface HeaderProps {
   onResetDefaults: () => void;
   onOpenCommand: () => void;
   onOpenLogModal: () => void;
+  onShareSetup?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -20,8 +21,19 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAudit,
   onResetDefaults,
   onOpenCommand,
-  onOpenLogModal
+  onOpenLogModal,
+  onShareSetup
 }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleShareClick = () => {
+    if (onShareSetup) {
+      onShareSetup();
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   return (
     <header className="md-top-app-bar macos-vibrancy">
       <div className="md-top-app-bar__title-group">
@@ -49,6 +61,18 @@ export const Header: React.FC<HeaderProps> = ({
           <Zap size={14} />
           <span>Log Strategy</span>
         </button>
+
+        {onShareSetup && (
+          <button
+            className="md-button md-button--tonal"
+            onClick={handleShareClick}
+            title="Copy Shareable Strategy Permalink URL"
+            style={{ height: 32, padding: '0 10px', fontSize: 12 }}
+          >
+            {copied ? <Check size={14} color="var(--quant-color-gain)" /> : <Share2 size={14} />}
+            <span>{copied ? 'Link Copied!' : 'Share'}</span>
+          </button>
+        )}
 
         <button
           className="md-button md-button--tonal"

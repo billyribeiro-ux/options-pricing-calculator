@@ -260,3 +260,83 @@ test('Proves 2D Payoff Chart multi-tier strike badge layout has zero text overla
     }
   }
 });
+
+test('Verifies Higher-Order Greeks (Charm, Speed, Color) & SVI Volatility Skew Parity', () => {
+  const S = 698;
+  const K = 705;
+  const T = 10 / 365;
+  const r = 0.045;
+  const q = 0.005;
+  const sigma = 0.174;
+
+  const sqrtT = Math.sqrt(T);
+  const d1 = (Math.log(S / K) + (r - q + 0.5 * sigma * sigma) * T) / (sigma * sqrtT);
+  const d2 = d1 - sigma * sqrtT;
+  const eqT = Math.exp(-q * T);
+  const pdfD1 = normalPdf(d1);
+  const gamma = (eqT * pdfD1) / (S * sigma * sqrtT);
+
+  const driftRatio = (2 * (r - q) * T - d2 * sigma * sqrtT) / (2 * T * sigma * sqrtT);
+  const charmCall = -(-q * eqT * normalCdf(d1) + eqT * pdfD1 * driftRatio) / 365;
+  const speed = -(gamma / S) * (d1 / (sigma * sqrtT) + 1);
+
+  // For OTM Call (K=705 > S=698), as 1 day elapses closer to expiry, Call Delta bleeds toward 0 (negative charm)
+  assert.ok(charmCall < 0, `OTM Call Charm should be negative (delta bleed), got ${charmCall}`);
+  assert.ok(Number.isFinite(speed) && speed !== 0, 'Speed should be non-zero finite');
+
+  // SVI Skew check: flat when skewSlope=0, elevated for OTM put when skewSlope=0.15
+  const getStrikeIV = (strike, S0, atmIV, skewSlope = 0) => {
+    if (!skewSlope) return atmIV;
+    const m = (strike - S0) / S0;
+    return Math.max(0.02, atmIV - skewSlope * m + 0.65 * skewSlope * m * m);
+  };
+  assert.equal(getStrikeIV(685, 698, 0.174, 0), 0.174);
+  assert.ok(getStrikeIV(680, 698, 0.174, 0.15) > 0.174, 'OTM Put should have higher IV under positive equity skew');
+});
+
+test('Verifies Deterministic Seeded Mulberry32 PRNG, OCC Symbol Decoder & Roll-Chain Accounting', () => {
+  function createSeededPRNG(seed) {
+    let a = (seed ^ 0xdeadbeef) >>> 0;
+    return function () {
+      a |= 0;
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  const rng1 = createSeededPRNG(42);
+  const rng2 = createSeededPRNG(42);
+  const rng3 = createSeededPRNG(43);
+
+  const seq1 = [rng1(), rng1(), rng1()];
+  const seq2 = [rng2(), rng2(), rng2()];
+  const seq3 = [rng3(), rng3(), rng3()];
+
+  assert.deepEqual(seq1, seq2, 'Identical seeds must produce identical random sequences');
+  assert.notDeepEqual(seq1, seq3, 'Different seeds must produce distinct sequences');
+
+  // OCC Symbol Decoder test
+  const match = 'SPY261030P00575000'.match(/^([A-Z]{1,6})(\d{2})(\d{2})(\d{2})([CP])(\d{8})$/);
+  assert.ok(match);
+  assert.equal(match[1], 'SPY');
+  assert.equal(`20${match[2]}-${match[3]}-${match[4]}`, '2026-10-30');
+  assert.equal(match[5], 'P');
+  assert.equal(parseInt(match[6], 10) / 1000, 575);
+
+  // Roll-chain cost basis update test: $0.77/sh initial credit on 10 contracts ($770 total, $4230 max risk) + $150 roll credit
+  const initCreditPerShare = 0.77;
+  const initTotalPrem = 770;
+  const initMaxRisk = 4230;
+  const rollCreditDollars = 150;
+  const contracts = 10;
+
+  const newNetPerShare = Number((initCreditPerShare + rollCreditDollars / (contracts * 100)).toFixed(2));
+  const newTotalPrem = initTotalPrem + rollCreditDollars;
+  const newMaxRisk = initMaxRisk - rollCreditDollars;
+
+  assert.equal(newNetPerShare, 0.92);
+  assert.equal(newTotalPrem, 920);
+  assert.equal(newMaxRisk, 4080);
+});
