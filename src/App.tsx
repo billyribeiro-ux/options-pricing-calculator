@@ -17,21 +17,22 @@ import { saveJournalEntry } from './journal/storage';
 import { UnderlyingParams } from './quant/types';
 import { calculateVolatilityBands } from './quant/expectedMove';
 import { evaluateIronCondor } from './quant/ironCondor';
+import { estimateSpreadCredit } from './quant/blackScholes';
 import { ParsedSpreadsheetData } from './utils/xlsxParser';
 import { JournalEntry } from './journal/types';
 
-const CALC_STORAGE_KEY = 'optionsquant_calc_state_v1';
+const CALC_STORAGE_KEY = 'optionsquant_calc_state_v2';
 
-const DEFAULT_PARAMS: UnderlyingParams = {
-  symbol: 'AAPL',
-  spotPrice: 698,
-  atmIV: 0.174,
+const ZERO_PARAMS: UnderlyingParams = {
+  symbol: '',
+  spotPrice: 0,
+  atmIV: 0.18,
   dte: 10,
   riskFreeRate: 0.045,
-  dividendYield: 0.005,
-  contracts: 10,
+  dividendYield: 0,
+  contracts: 1,
   strikeGap: 5,
-  atmStraddleAsk: 6.80,
+  atmStraddleAsk: 0,
   straddleFactor: 0.85,
   skewSlope: 0
 };
@@ -40,56 +41,58 @@ function loadInitialCalcState() {
   if (typeof window !== 'undefined') {
     const sp = new URLSearchParams(window.location.search);
     if (sp.has('sym') && sp.has('s0')) {
+      const s0 = parseFloat(sp.get('s0') || '0') || 0;
       return {
         params: {
-          ...DEFAULT_PARAMS,
-          symbol: (sp.get('sym') || 'AAPL').toUpperCase(),
-          spotPrice: parseFloat(sp.get('s0') || '698') || 698,
-          atmIV: parseFloat(sp.get('iv') || '0.174') || 0.174,
+          ...ZERO_PARAMS,
+          symbol: (sp.get('sym') || '').toUpperCase(),
+          spotPrice: s0,
+          atmIV: parseFloat(sp.get('iv') || '0.18') || 0.18,
           dte: parseInt(sp.get('dte') || '10', 10) || 10,
-          contracts: parseInt(sp.get('qty') || '10', 10) || 10,
+          contracts: parseInt(sp.get('qty') || '1', 10) || 1,
           strikeGap: parseFloat(sp.get('gap') || '5') || 5,
           skewSlope: parseFloat(sp.get('skew') || '0') || 0
         },
         strategyMode: (sp.get('mode') as StrategyMode) || 'iron-condor',
-        callShort: parseFloat(sp.get('cs') || '705') || 705,
-        callLong: parseFloat(sp.get('cl') || '710') || 710,
-        callCredit: parseFloat(sp.get('cc') || '0.45') || 0.45,
-        putShort: parseFloat(sp.get('ps') || '690') || 690,
-        putLong: parseFloat(sp.get('pl') || '685') || 685,
-        putCredit: parseFloat(sp.get('pc') || '0.32') || 0.32
+        callShort: s0 > 0 ? parseFloat(sp.get('cs') || '0') || 0 : 0,
+        callLong: s0 > 0 ? parseFloat(sp.get('cl') || '0') || 0 : 0,
+        callCredit: s0 > 0 ? parseFloat(sp.get('cc') || '0') || 0 : 0,
+        putShort: s0 > 0 ? parseFloat(sp.get('ps') || '0') || 0 : 0,
+        putLong: s0 > 0 ? parseFloat(sp.get('pl') || '0') || 0 : 0,
+        putCredit: s0 > 0 ? parseFloat(sp.get('pc') || '0') || 0 : 0
       };
     }
     try {
       const raw = localStorage.getItem(CALC_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed && parsed.params && parsed.params.symbol) {
+        if (parsed && parsed.params) {
+          const s0 = Number(parsed.params.spotPrice) || 0;
           return {
-            params: { ...DEFAULT_PARAMS, ...parsed.params },
+            params: { ...ZERO_PARAMS, ...parsed.params, spotPrice: s0 },
             strategyMode: (parsed.strategyMode as StrategyMode) || 'iron-condor',
-            callShort: parsed.callShort ?? 705,
-            callLong: parsed.callLong ?? 710,
-            callCredit: parsed.callCredit ?? 0.45,
-            putShort: parsed.putShort ?? 690,
-            putLong: parsed.putLong ?? 685,
-            putCredit: parsed.putCredit ?? 0.32
+            callShort: s0 > 0 ? (parsed.callShort ?? 0) : 0,
+            callLong: s0 > 0 ? (parsed.callLong ?? 0) : 0,
+            callCredit: s0 > 0 ? (parsed.callCredit ?? 0) : 0,
+            putShort: s0 > 0 ? (parsed.putShort ?? 0) : 0,
+            putLong: s0 > 0 ? (parsed.putLong ?? 0) : 0,
+            putCredit: s0 > 0 ? (parsed.putCredit ?? 0) : 0
           };
         }
       }
     } catch {
-      // Fallback to default Excel state
+      // Fallback to zero state
     }
   }
   return {
-    params: DEFAULT_PARAMS,
+    params: ZERO_PARAMS,
     strategyMode: 'iron-condor' as StrategyMode,
-    callShort: 705,
-    callLong: 710,
-    callCredit: 0.45,
-    putShort: 690,
-    putLong: 685,
-    putCredit: 0.32
+    callShort: 0,
+    callLong: 0,
+    callCredit: 0,
+    putShort: 0,
+    putLong: 0,
+    putCredit: 0
   };
 }
 
@@ -158,17 +161,90 @@ export const App: React.FC = () => {
   };
 
   const handleResetDefaults = () => {
-    setParams(DEFAULT_PARAMS);
-    setCallShort(705);
-    setCallLong(710);
-    setCallCredit(0.45);
-    setPutShort(690);
-    setPutLong(685);
-    setPutCredit(0.32);
+    setParams(ZERO_PARAMS);
+    setCallShort(0);
+    setCallLong(0);
+    setCallCredit(0);
+    setPutShort(0);
+    setPutLong(0);
+    setPutCredit(0);
     setStrategyMode('iron-condor');
     if (typeof window !== 'undefined' && window.location.search) {
       window.history.replaceState({}, '', window.location.pathname);
     }
+  };
+
+  const handleLoadTickerPreset = (
+    ticker: string,
+    price: number,
+    iv: number,
+    presetContracts = 10,
+    presetCallShort?: number,
+    presetCallLong?: number,
+    presetCallCredit?: number,
+    presetPutShort?: number,
+    presetPutLong?: number,
+    presetPutCredit?: number
+  ) => {
+    if (price <= 0) {
+      handleResetDefaults();
+      return;
+    }
+    const gap = price > 300 ? 5 : price > 100 ? 2.5 : 1;
+    const nearest = Math.round(price / gap) * gap;
+    const nextParams: UnderlyingParams = {
+      ...params,
+      symbol: ticker,
+      spotPrice: price,
+      atmIV: iv,
+      dte: params.dte > 0 ? params.dte : 10,
+      contracts: presetContracts,
+      strikeGap: gap
+    };
+    const cs = presetCallShort ?? nearest + gap;
+    const cl = presetCallLong ?? nearest + gap * 2;
+    const ps = presetPutShort ?? nearest - gap;
+    const pl = presetPutLong ?? nearest - gap * 2;
+    const hasWings = strategyMode !== 'short-strangle';
+
+    setParams(nextParams);
+    setCallShort(cs);
+    setCallLong(cl);
+    setCallCredit(presetCallCredit ?? estimateSpreadCredit('call', cs, cl, nextParams, hasWings));
+    setPutShort(ps);
+    setPutLong(pl);
+    setPutCredit(presetPutCredit ?? estimateSpreadCredit('put', ps, pl, nextParams, hasWings));
+  };
+
+  const handleChangeParams = (newP: Partial<UnderlyingParams>) => {
+    setParams((prev) => {
+      const merged = { ...prev, ...newP };
+      if (newP.spotPrice !== undefined) {
+        if (newP.spotPrice <= 0) {
+          setCallShort(0);
+          setCallLong(0);
+          setCallCredit(0);
+          setPutShort(0);
+          setPutLong(0);
+          setPutCredit(0);
+        } else if (prev.spotPrice <= 0 || callShort <= 0 || putShort <= 0) {
+          const gap = merged.strikeGap > 0 ? merged.strikeGap : merged.spotPrice > 300 ? 5 : 2.5;
+          const nearest = Math.round(merged.spotPrice / gap) * gap;
+          const cs = nearest + gap;
+          const cl = nearest + gap * 2;
+          const ps = nearest - gap;
+          const pl = nearest - gap * 2;
+          const hasWings = strategyMode !== 'short-strangle';
+          setCallShort(cs);
+          setCallLong(cl);
+          setCallCredit(estimateSpreadCredit('call', cs, cl, merged, hasWings));
+          setPutShort(ps);
+          setPutLong(pl);
+          setPutCredit(estimateSpreadCredit('put', ps, pl, merged, hasWings));
+        }
+      }
+      return merged;
+    });
   };
 
   const handleShareSetup = () => {
@@ -305,7 +381,9 @@ export const App: React.FC = () => {
                 <ParameterInputs
                   params={params}
                   volBands={volBands}
-                  onChangeParams={(newP) => setParams((prev) => ({ ...prev, ...newP }))}
+                  onChangeParams={handleChangeParams}
+                  onLoadPreset={handleLoadTickerPreset}
+                  onClearAll={handleResetDefaults}
                 />
                 <StrategyBuilder
                   mode={strategyMode}
@@ -345,12 +423,16 @@ export const App: React.FC = () => {
                 putCredit={putCredit}
                 params={params}
                 onSelectCallShort={(s) => {
+                  const cl = s + params.strikeGap;
                   setCallShort(s);
-                  setCallLong(s + params.strikeGap);
+                  setCallLong(cl);
+                  setCallCredit(estimateSpreadCredit('call', s, cl, params, strategyMode !== 'short-strangle'));
                 }}
                 onSelectPutShort={(s) => {
+                  const pl = s - params.strikeGap;
                   setPutShort(s);
-                  setPutLong(s - params.strikeGap);
+                  setPutLong(pl);
+                  setPutCredit(estimateSpreadCredit('put', s, pl, params, strategyMode !== 'short-strangle'));
                 }}
               />
             </>
@@ -404,19 +486,11 @@ export const App: React.FC = () => {
           else setActiveView(v);
         }}
         onSelectTicker={(ticker, price, iv) => {
-          const gap = price > 300 ? 5 : price > 100 ? 2.5 : 1;
-          const nearest = Math.round(price / gap) * gap;
-          setParams((prev) => ({
-            ...prev,
-            symbol: ticker,
-            spotPrice: price,
-            atmIV: iv,
-            strikeGap: gap
-          }));
-          setCallShort(nearest + gap);
-          setCallLong(nearest + gap * 2);
-          setPutShort(nearest - gap);
-          setPutLong(nearest - gap * 2);
+          if (ticker === 'AAPL' && price === 698) {
+            handleLoadTickerPreset('AAPL', 698, 0.174, 10, 705, 710, 0.45, 690, 685, 0.32);
+          } else {
+            handleLoadTickerPreset(ticker, price, iv, 10);
+          }
         }}
         onSelectMode={(m) => {
           setStrategyMode(m);

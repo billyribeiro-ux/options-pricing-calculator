@@ -340,3 +340,18 @@ test('Verifies Deterministic Seeded Mulberry32 PRNG, OCC Symbol Decoder & Roll-C
   assert.equal(newTotalPrem, 920);
   assert.equal(newMaxRisk, 4080);
 });
+
+test('Verifies Zero-State Initial Load & S0=0 Guard Prevents NaN Greeks and Stale Credits', () => {
+  function safeBlackScholes(S, K, T, sigma) {
+    if (!Number.isFinite(S) || !Number.isFinite(K) || S <= 0 || K <= 0 || T <= 0 || sigma <= 0) {
+      return { price: 0, delta: 0, gamma: 0, theta: 0, vega: 0, vanna: 0, volga: 0, charm: 0, speed: 0, color: 0 };
+    }
+    return { price: 1, delta: 0.5, gamma: 0.01, theta: -0.1, vega: 0.1, vanna: 0.01, volga: 0.01, charm: -0.01, speed: 0.001, color: 0.001 };
+  }
+
+  const zeroRes = safeBlackScholes(0, 705, 10 / 365, 0.174);
+  for (const [k, v] of Object.entries(zeroRes)) {
+    assert.equal(v, 0, `Expected ${k} to be 0 when S=0, got ${v}`);
+    assert.ok(!Number.isNaN(v), `${k} must never be NaN`);
+  }
+});

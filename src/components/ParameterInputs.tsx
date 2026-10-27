@@ -1,29 +1,90 @@
 import React from 'react';
 import { UnderlyingParams, VolatilityBands } from '../quant/types';
 import { formatCurrency, formatNumber } from '../utils/formatters';
-import { Activity, ShieldAlert, Zap } from 'lucide-react';
+import { Activity, ShieldAlert, Zap, RotateCcw } from 'lucide-react';
 
 interface ParameterInputsProps {
   params: UnderlyingParams;
   volBands: VolatilityBands;
   onChangeParams: (newParams: Partial<UnderlyingParams>) => void;
+  onLoadPreset?: (
+    ticker: string,
+    price: number,
+    iv: number,
+    contracts?: number,
+    cs?: number,
+    cl?: number,
+    cc?: number,
+    ps?: number,
+    pl?: number,
+    pc?: number
+  ) => void;
+  onClearAll?: () => void;
 }
 
 export const ParameterInputs: React.FC<ParameterInputsProps> = ({
   params,
   volBands,
-  onChangeParams
+  onChangeParams,
+  onLoadPreset,
+  onClearAll
 }) => {
   return (
     <div className="md-card md-card--elevated">
-      <div className="md-card__header">
+      <div className="md-card__header" style={{ flexWrap: 'wrap', gap: 8 }}>
         <h3 className="md-card__title">
           <Activity size={18} color="var(--md-sys-color-primary)" />
           Underlying Parameters & Volatility
         </h3>
-        <span className="label-small" style={{ color: 'var(--md-sys-color-outline)' }}>
-          Excel Rows 8–16
-        </span>
+        {onLoadPreset && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span className="label-small" style={{ color: 'var(--md-sys-color-outline)' }}>Presets:</span>
+            <button
+              type="button"
+              className="md-button md-button--tonal"
+              style={{ height: 24, padding: '0 8px', fontSize: 11 }}
+              onClick={() => onLoadPreset('SPY', 580, 0.135, 5)}
+            >
+              SPY $580
+            </button>
+            <button
+              type="button"
+              className="md-button md-button--tonal"
+              style={{ height: 24, padding: '0 8px', fontSize: 11 }}
+              onClick={() => onLoadPreset('QQQ', 495, 0.162, 5)}
+            >
+              QQQ $495
+            </button>
+            <button
+              type="button"
+              className="md-button md-button--tonal"
+              style={{ height: 24, padding: '0 8px', fontSize: 11 }}
+              onClick={() => onLoadPreset('NVDA', 140, 0.45, 5)}
+            >
+              NVDA $140
+            </button>
+            <button
+              type="button"
+              className="md-button md-button--tonal"
+              style={{ height: 24, padding: '0 8px', fontSize: 11 }}
+              onClick={() => onLoadPreset('AAPL', 698, 0.174, 10, 705, 710, 0.45, 690, 685, 0.32)}
+            >
+              AAPL Sample
+            </button>
+            {onClearAll && (
+              <button
+                type="button"
+                className="md-button md-button--outlined"
+                style={{ height: 24, padding: '0 8px', fontSize: 11 }}
+                onClick={onClearAll}
+                title="Reset all inputs and calculations to zero"
+              >
+                <RotateCcw size={11} />
+                <span>Zero (0)</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid-params">
@@ -36,6 +97,7 @@ export const ParameterInputs: React.FC<ParameterInputsProps> = ({
               name="symbol"
               type="text"
               className="md-input"
+              placeholder="e.g. SPY"
               value={params.symbol}
               onChange={(e) => onChangeParams({ symbol: e.target.value.toUpperCase() })}
             />
@@ -258,7 +320,7 @@ export const ParameterInputs: React.FC<ParameterInputsProps> = ({
             ±{formatCurrency(volBands.marketMakerMove)}
           </div>
           <div className="body-small" style={{ marginTop: 2, color: 'var(--md-sys-color-on-surface-variant)' }}>
-            Straddle: <span className="mono-small">${formatNumber(params.atmStraddleAsk ?? 6.80)}</span> × <span className="mono-small">{(params.straddleFactor ?? 0.85).toFixed(2)}x</span> ({formatCurrency(params.spotPrice - volBands.marketMakerMove, 1)}–{formatCurrency(params.spotPrice + volBands.marketMakerMove, 1)})
+            Straddle: <span className="mono-small">${formatNumber(params.atmStraddleAsk ?? 0)}</span> × <span className="mono-small">{(params.straddleFactor ?? 0.85).toFixed(2)}x</span> ({params.spotPrice > 0 ? `${formatCurrency(params.spotPrice - volBands.marketMakerMove, 1)}–${formatCurrency(params.spotPrice + volBands.marketMakerMove, 1)}` : '$0.0–$0.0'})
           </div>
         </div>
       </div>

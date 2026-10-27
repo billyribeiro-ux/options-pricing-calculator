@@ -9,6 +9,19 @@ export function calculateVolatilityBands(params: UnderlyingParams): VolatilityBa
   const S = params.spotPrice;
   const sigma = params.atmIV;
   const T = params.dte / 365;
+
+  if (S <= 0 || sigma <= 0 || params.dte <= 0) {
+    return {
+      oneStdDevMove: 0,
+      upper1Sigma: 0,
+      lower1Sigma: 0,
+      twoStdDevMove: 0,
+      upper2Sigma: 0,
+      lower2Sigma: 0,
+      marketMakerMove: 0
+    };
+  }
+
   const sqrtT = Math.sqrt(T);
 
   // 1 Std Dev Move = S * sigma * sqrt(T) (Row 8, Column I)

@@ -77,7 +77,27 @@ export function blackScholes(
   r = 0,
   q = 0
 ): BSResult {
-  if (T <= 0) {
+  if (!Number.isFinite(S) || !Number.isFinite(K) || S <= 0 || K <= 0) {
+    return {
+      price: 0,
+      delta: 0,
+      gamma: 0,
+      theta: 0,
+      vega: 0,
+      rho: 0,
+      vanna: 0,
+      volga: 0,
+      charm: 0,
+      speed: 0,
+      color: 0,
+      d1: 0,
+      d2: 0,
+      intrinsicValue: 0,
+      extrinsicValue: 0
+    };
+  }
+
+  if (T <= 0 || sigma <= 0) {
     const intrinsic = type === 'call' ? Math.max(0, S - K) : Math.max(0, K - S);
     return {
       price: intrinsic,
@@ -216,6 +236,34 @@ export function findStrikeByDelta(
   }
 
   return bestStrike;
+}
+
+/**
+ * Computes theoretical Black-Scholes net credit ($/share) for a vertical spread or single short leg.
+ */
+export function estimateSpreadCredit(
+  type: OptionType,
+  shortStrike: number,
+  longStrike: number,
+  params: UnderlyingParams,
+  hasLongWing = true
+): number {
+  const S0 = params.spotPrice;
+  if (S0 <= 0 || shortStrike <= 0 || params.dte <= 0 || params.atmIV <= 0) {
+    return 0;
+  }
+  const T = Math.max(0.001, params.dte / 365);
+  const skew = params.skewSlope ?? 0;
+  const shortIV = getStrikeIV(shortStrike, S0, params.atmIV, skew);
+  const shortPrice = blackScholes(type, S0, shortStrike, T, shortIV, params.riskFreeRate, params.dividendYield).price;
+
+  if (!hasLongWing || longStrike <= 0) {
+    return Math.max(0.05, Number(shortPrice.toFixed(2)));
+  }
+
+  const longIV = getStrikeIV(longStrike, S0, params.atmIV, skew);
+  const longPrice = blackScholes(type, S0, longStrike, T, longIV, params.riskFreeRate, params.dividendYield).price;
+  return Math.max(0.05, Number(Math.max(0, shortPrice - longPrice).toFixed(2)));
 }
 
 /**

@@ -37,7 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="md-top-app-bar macos-vibrancy">
       <div className="md-top-app-bar__title-group">
-        <span className="md-top-app-bar__ticker-badge">{params.symbol}</span>
+        <span className="md-top-app-bar__ticker-badge">{params.symbol || 'TICKER'}</span>
         <div>
           <span className="mono-large" style={{ marginRight: 8 }}>
             {formatCurrency(params.spotPrice)}

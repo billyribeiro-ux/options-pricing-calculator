@@ -75,7 +75,7 @@ export const PayoffChart2D: React.FC<PayoffChart2DProps> = ({ condorEval, params
     includeCall ? Math.max(cs, hasLongWings ? cl : cs) + stdDev * 0.5 : S0
   );
   const minPrice = Math.floor(rawMin);
-  const maxPrice = Math.ceil(rawMax);
+  const maxPrice = Math.max(minPrice + 10, Math.ceil(rawMax));
 
   // Expiration PnL function
   const calcPnLExpiration = useCallback(

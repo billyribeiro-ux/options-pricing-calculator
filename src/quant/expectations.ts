@@ -14,6 +14,7 @@ export function probITMDriftless(
   sigma: number,
   dte: number
 ): number {
+  if (S0 <= 0 || K <= 0 || sigma <= 0 || dte <= 0) return 0;
   const T = dte / 365;
   const denom = sigma * Math.sqrt(T);
   if (denom <= 0) return type === 'call' ? (S0 > K ? 1 : 0) : (S0 < K ? 1 : 0);
@@ -33,12 +34,38 @@ export function evaluateSpread(
   params: UnderlyingParams
 ): SpreadEvaluation {
   const S0 = params.spotPrice;
+  const dte = params.dte;
+  const contracts = params.contracts;
+
+  if (S0 <= 0 || shortStrike <= 0 || contracts <= 0 || dte <= 0 || params.atmIV <= 0) {
+    return {
+      type,
+      shortStrike: Math.max(0, shortStrike),
+      longStrike: Math.max(0, longStrike),
+      spreadWidth: 0,
+      netCredit: 0,
+      contracts: Math.max(0, contracts),
+      totalCredit: 0,
+      trueMaxGain: 0,
+      trueMaxLoss: 0,
+      probITM: 0,
+      probFullLoss: 0,
+      probMaxProfit: 0,
+      excelMaxPain: 0,
+      excelEV: 0,
+      excelRewardRisk: 0,
+      excelPrice1to1: 0,
+      exactExpectedLoss: 0,
+      exactEV: 0,
+      exactRewardRisk: 0,
+      exactPrice1to1: 0
+    };
+  }
+
   const skew = params.skewSlope ?? 0;
   const shortIV = getStrikeIV(shortStrike, S0, params.atmIV, skew);
   const longIV = getStrikeIV(longStrike, S0, params.atmIV, skew);
-  const dte = params.dte;
   const T = dte / 365;
-  const contracts = params.contracts;
   const multiplier = contracts * 100;
 
   const spreadWidth = Math.abs(longStrike - shortStrike);
@@ -83,7 +110,7 @@ export function evaluateSpread(
   const exactEV = totalCredit - exactExpectedLossTotal;
   
   // Exact Reward / Risk Ratio
-  const exactRewardRisk = exactExpectedLossTotal > 0 ? totalCredit / exactExpectedLossTotal : Infinity;
+  const exactRewardRisk = exactExpectedLossTotal > 0 ? totalCredit / exactExpectedLossTotal : 0;
   
   // Exact Fair Price for break-even expected value: Credit needed = expected payout
   const exactPrice1to1 = expectedPayoutPerShare;
@@ -125,7 +152,10 @@ export function buildStrikeMatrix(
   count = 10
 ): StrikeMatrixRow[] {
   const S0 = params.spotPrice;
-  const gap = params.strikeGap;
+  const gap = params.strikeGap || 5;
+  if (S0 <= 0 || params.dte <= 0 || params.atmIV <= 0) {
+    return [];
+  }
   const T = Math.max(0.001, params.dte / 365);
   const skew = params.skewSlope ?? 0;
   const spreadWidth = Math.abs(selectedLongStrike - selectedShortStrike) || gap;

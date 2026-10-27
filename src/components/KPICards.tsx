@@ -59,7 +59,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ condorEval }) => {
           <ShieldCheck size={16} color="var(--quant-color-loss)" />
         </div>
         <div className="mono-large" style={{ color: 'var(--quant-color-loss)' }}>
-          -{formatCurrency(condorEval.maxLoss)}
+          {condorEval.maxLoss > 0 ? '-' : ''}{formatCurrency(condorEval.maxLoss)}
         </div>
         <div className="body-small" style={{ marginTop: 4, color: 'var(--md-sys-color-on-surface-variant)' }}>
           Excel overstates by <span className="mono-small" style={{ color: 'var(--quant-color-loss)' }}>+${(condorEval.marginRequired - condorEval.maxLoss).toFixed(0)}</span>

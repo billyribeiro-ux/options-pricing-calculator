@@ -1,6 +1,6 @@
 import React from 'react';
 import { IronCondorEvaluation, StrategyMode, UnderlyingParams } from '../quant/types';
-import { findStrikeByDelta } from '../quant/blackScholes';
+import { findStrikeByDelta, estimateSpreadCredit } from '../quant/blackScholes';
 import { formatCurrency, formatMultiplier } from '../utils/formatters';
 import { Sliders, Sparkles, TrendingUp, TrendingDown, Zap, Crosshair } from 'lucide-react';
 
@@ -48,18 +48,29 @@ export const StrategyBuilder: React.FC<StrategyBuilderProps> = ({
   };
 
   const handleApplyDeltaPreset = (targetDelta: number) => {
+    if (params.spotPrice <= 0) return;
     const optCallShort = findStrikeByDelta('call', targetDelta, params);
     const optPutShort = findStrikeByDelta('put', targetDelta, params);
-    onChangeCallSpread(optCallShort, optCallShort + gap, callCredit);
-    onChangePutSpread(optPutShort, optPutShort - gap, putCredit);
+    const nextCallLong = optCallShort + gap;
+    const nextPutLong = optPutShort - gap;
+    const hasWings = mode !== 'short-strangle';
+    onChangeCallSpread(optCallShort, nextCallLong, estimateSpreadCredit('call', optCallShort, nextCallLong, params, hasWings));
+    onChangePutSpread(optPutShort, nextPutLong, estimateSpreadCredit('put', optPutShort, nextPutLong, params, hasWings));
   };
 
   const handleSelectMode = (nextMode: StrategyMode) => {
     onChangeMode(nextMode);
+    if (params.spotPrice <= 0) return;
+    const hasWings = nextMode !== 'short-strangle';
     if (nextMode === 'iron-butterfly') {
       const atmStrike = Math.round(params.spotPrice / gap) * gap;
-      onChangeCallSpread(atmStrike, atmStrike + gap * 2, callCredit);
-      onChangePutSpread(atmStrike, atmStrike - gap * 2, putCredit);
+      const cl = atmStrike + gap * 2;
+      const pl = atmStrike - gap * 2;
+      onChangeCallSpread(atmStrike, cl, estimateSpreadCredit('call', atmStrike, cl, params, true));
+      onChangePutSpread(atmStrike, pl, estimateSpreadCredit('put', atmStrike, pl, params, true));
+    } else if (callShort > 0 && putShort > 0) {
+      onChangeCallSpread(callShort, callLong, estimateSpreadCredit('call', callShort, callLong, params, hasWings));
+      onChangePutSpread(putShort, putLong, estimateSpreadCredit('put', putShort, putLong, params, hasWings));
     }
   };
 

@@ -23,6 +23,48 @@ export function evaluateIronCondor(
   const callSpread = evaluateSpread('call', callShort, effectiveCallLong, callCredit, params);
   const putSpread = evaluateSpread('put', putShort, effectivePutLong, putCredit, params);
 
+  if (
+    params.spotPrice <= 0 ||
+    params.contracts <= 0 ||
+    params.dte <= 0 ||
+    params.atmIV <= 0 ||
+    (callShort <= 0 && putShort <= 0)
+  ) {
+    return {
+      mode,
+      callSpread,
+      putSpread,
+      totalCreditPerShare: 0,
+      totalCreditDollars: 0,
+      marginRequired: 0,
+      maxGain: 0,
+      maxLoss: 0,
+      breakevenLow: 0,
+      breakevenHigh: 0,
+      returnOnRisk: 0,
+      returnOnMargin: 0,
+      kellyFraction: 0,
+      probMaxProfit: 0,
+      prob50Profit: 0,
+      probAnyLoss: 0,
+      excelCombinedEV: 0,
+      exactCombinedEV: 0,
+      exactRewardRisk: 0,
+      greeks: {
+        delta: 0,
+        gamma: 0,
+        theta: 0,
+        vega: 0,
+        rho: 0,
+        vanna: 0,
+        volga: 0,
+        charm: 0,
+        speed: 0,
+        color: 0
+      }
+    };
+  }
+
   const callWidth = Math.abs(effectiveCallLong - callShort);
   const putWidth = Math.abs(effectivePutLong - putShort);
 
@@ -102,15 +144,16 @@ export function evaluateIronCondor(
     // Exact Combined Quantitative EV
     exactCombinedEV = totalCreditDollars - callSpread.exactExpectedLoss - putSpread.exactExpectedLoss;
     const exactTotalExpectedLoss = callSpread.exactExpectedLoss + putSpread.exactExpectedLoss;
-    exactRewardRisk = exactTotalExpectedLoss > 0 ? totalCreditDollars / exactTotalExpectedLoss : Infinity;
+    exactRewardRisk = exactTotalExpectedLoss > 0 ? totalCreditDollars / exactTotalExpectedLoss : 0;
   }
 
-  const returnOnRisk = maxLoss > 0 ? maxGain / maxLoss : Infinity;
-  const returnOnMargin = marginRequired > 0 ? maxGain / marginRequired : Infinity;
-  const probAnyLoss = 1 - probMaxProfit;
+  const returnOnRisk = maxLoss > 0 ? maxGain / maxLoss : 0;
+  const returnOnMargin = marginRequired > 0 ? maxGain / marginRequired : 0;
+  const probAnyLoss = probMaxProfit > 0 ? 1 - probMaxProfit : 0;
 
   // POP50: Probability of reaching 50% max profit prior to expiration via barrier reflection scaling
-  const prob50Profit = Math.min(0.995, 1 - Math.pow(Math.max(0.005, 1 - probMaxProfit), 1.65));
+  const prob50Profit =
+    probMaxProfit > 0 ? Math.min(0.995, 1 - Math.pow(Math.max(0.005, 1 - probMaxProfit), 1.65)) : 0;
 
   // Risk-adjusted Kelly Criterion fraction based on continuous expected value:
   // If EV > 0, optimal risk allocation scales with edge over max potential loss
