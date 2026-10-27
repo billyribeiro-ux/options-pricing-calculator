@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { JournalEntry, StrategyType, TradeStatus } from '../types';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
-import { Search, Eye, Edit3, Trash2 } from 'lucide-react';
+import { Search, Eye, Edit3, Trash2, Download, ArrowUpDown } from 'lucide-react';
 
 interface TradeLogTableProps {
   entries: JournalEntry[];
@@ -21,23 +21,76 @@ export const TradeLogTable: React.FC<TradeLogTableProps> = ({
   const [search, setSearch] = useState('');
   const [strategyFilter, setStrategyFilter] = useState<StrategyType | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<TradeStatus | 'all'>('all');
+  const [sortBy, setSortBy] = useState<'date' | 'pnl' | 'ror'>('date');
+  const [sortDesc, setSortDesc] = useState<boolean>(true);
 
-  // Filter entries
-  const filtered = entries.filter((e) => {
-    if (selectedDate && e.entryDate !== selectedDate && e.exitDate !== selectedDate) {
-      return false;
+  const toggleSort = (col: 'date' | 'pnl' | 'ror') => {
+    if (sortBy === col) {
+      setSortDesc(!sortDesc);
+    } else {
+      setSortBy(col);
+      setSortDesc(true);
     }
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      const matchSymbol = e.symbol.toLowerCase().includes(q);
-      const matchNotes = e.thesisNotes.toLowerCase().includes(q);
-      const matchTags = e.tags.some((t) => t.toLowerCase().includes(q));
-      if (!matchSymbol && !matchNotes && !matchTags) return false;
-    }
-    if (strategyFilter !== 'all' && e.strategyType !== strategyFilter) return false;
-    if (statusFilter !== 'all' && e.status !== statusFilter) return false;
-    return true;
-  });
+  };
+
+  // Filter & Sort entries
+  const filtered = entries
+    .filter((e) => {
+      if (selectedDate && e.entryDate !== selectedDate && e.exitDate !== selectedDate) {
+        return false;
+      }
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const matchSymbol = e.symbol.toLowerCase().includes(q);
+        const matchNotes = e.thesisNotes.toLowerCase().includes(q);
+        const matchTags = e.tags.some((t) => t.toLowerCase().includes(q));
+        if (!matchSymbol && !matchNotes && !matchTags) return false;
+      }
+      if (strategyFilter !== 'all' && e.strategyType !== strategyFilter) return false;
+      if (statusFilter !== 'all' && e.status !== statusFilter) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const dir = sortDesc ? -1 : 1;
+      if (sortBy === 'pnl') {
+        const pa = a.realizedPnL ?? a.unrealizedPnL ?? 0;
+        const pb = b.realizedPnL ?? b.unrealizedPnL ?? 0;
+        return (pa - pb) * dir;
+      }
+      if (sortBy === 'ror') {
+        const ra = a.returnOnRisk ?? -999;
+        const rb = b.returnOnRisk ?? -999;
+        return (ra - rb) * dir;
+      }
+      return a.entryDate.localeCompare(b.entryDate) * dir;
+    });
+
+  const handleExportCSV = () => {
+    const headers = ['Date', 'ExitDate', 'Symbol', 'Strategy', 'Status', 'NetCreditPerShare', 'TotalPremium', 'RealizedPnL', 'MaxRisk', 'ReturnOnRisk', 'Grade', 'RulesFollowed', 'Notes'];
+    const rows = filtered.map((t) => [
+      t.entryDate,
+      t.exitDate || '',
+      t.symbol,
+      t.strategyType,
+      t.status,
+      t.netCreditOrDebitPerShare.toFixed(2),
+      t.totalPremiumDollars.toFixed(2),
+      (t.realizedPnL ?? t.unrealizedPnL ?? 0).toFixed(2),
+      t.maxRiskDollars.toFixed(2),
+      t.returnOnRisk !== undefined ? (t.returnOnRisk * 100).toFixed(2) + '%' : '',
+      t.psychology.executionGrade,
+      t.psychology.rulesFollowed ? 'Yes' : 'No',
+      `"${(t.thesisNotes || '').replace(/"/g, '""')}"`
+    ]);
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `optionsquant-journal-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const getGradeClass = (grade: string) => {
     if (grade.startsWith('A')) return 'md-chip md-chip--gain';
@@ -92,6 +145,7 @@ export const TradeLogTable: React.FC<TradeLogTableProps> = ({
             <option value="bull-put-spread" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>Bull Put Spread</option>
             <option value="bear-call-spread" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>Bear Call Spread</option>
             <option value="iron-butterfly" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>Iron Butterfly</option>
+            <option value="strangle" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>Short Strangle</option>
             <option value="straddle" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>Straddle</option>
           </select>
 
@@ -116,6 +170,16 @@ export const TradeLogTable: React.FC<TradeLogTableProps> = ({
             <option value="open" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>Open</option>
             <option value="closed" style={{ color: 'var(--md-sys-color-on-surface)', backgroundColor: 'var(--md-sys-color-surface-container-high)' }}>Closed</option>
           </select>
+
+          <button
+            className="md-button md-button--outlined"
+            style={{ height: 36, padding: '0 12px', fontSize: 12 }}
+            onClick={handleExportCSV}
+            title="Export Filtered Journal to CSV"
+          >
+            <Download size={14} />
+            <span>Export CSV</span>
+          </button>
         </div>
       </div>
 
@@ -123,14 +187,26 @@ export const TradeLogTable: React.FC<TradeLogTableProps> = ({
         <table className="md-table">
           <thead>
             <tr>
-              <th style={{ width: 95 }}>Date</th>
+              <th style={{ width: 95, cursor: 'pointer' }} onClick={() => toggleSort('date')} title="Sort by Entry Date">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  Date <ArrowUpDown size={11} style={{ opacity: sortBy === 'date' ? 1 : 0.35 }} />
+                </span>
+              </th>
               <th style={{ width: 85 }}>Symbol</th>
               <th style={{ width: 140 }}>Strategy</th>
               <th style={{ width: 90 }}>Status</th>
               <th style={{ minWidth: 150 }}>Legs Summary</th>
               <th className="text-right" style={{ width: 115 }}>Credit / Debit</th>
-              <th className="text-right" style={{ width: 125 }}>Realized P&L</th>
-              <th className="text-right" style={{ width: 100 }}>Return (RoR)</th>
+              <th className="text-right" style={{ width: 125, cursor: 'pointer' }} onClick={() => toggleSort('pnl')} title="Sort by Realized P&L">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
+                  Realized P&L <ArrowUpDown size={11} style={{ opacity: sortBy === 'pnl' ? 1 : 0.35 }} />
+                </span>
+              </th>
+              <th className="text-right" style={{ width: 100, cursor: 'pointer' }} onClick={() => toggleSort('ror')} title="Sort by Return on Risk">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
+                  Return (RoR) <ArrowUpDown size={11} style={{ opacity: sortBy === 'ror' ? 1 : 0.35 }} />
+                </span>
+              </th>
               <th className="text-center" style={{ width: 75 }}>Grade</th>
               <th className="text-center" style={{ width: 120 }}>Discipline</th>
               <th className="text-right" style={{ width: 110 }}>Actions</th>

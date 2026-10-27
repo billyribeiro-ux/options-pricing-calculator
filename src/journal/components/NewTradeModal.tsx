@@ -205,6 +205,8 @@ export const NewTradeModal: React.FC<NewTradeModalProps> = ({ isOpen, onClose, o
               <option value="bull-put-spread" style={optionStyle}>Bull Put Spread</option>
               <option value="bear-call-spread" style={optionStyle}>Bear Call Spread</option>
               <option value="iron-butterfly" style={optionStyle}>Iron Butterfly</option>
+              <option value="strangle" style={optionStyle}>Short Strangle</option>
+              <option value="straddle" style={optionStyle}>Straddle</option>
               <option value="covered-call" style={optionStyle}>Covered Call</option>
               <option value="cash-secured-put" style={optionStyle}>Cash-Secured Put</option>
               <option value="long-call" style={optionStyle}>Long Call</option>

@@ -62,18 +62,34 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({
   // Monthly summary
   let monthPnL = 0;
   let monthTrades = 0;
+  let winningDays = 0;
+  let activeDays = 0;
   days.forEach((d) => {
     const summary = dailyMap.get(d.dateStr);
-    if (summary) {
+    if (summary && summary.tradeCount > 0) {
       monthPnL += summary.realizedPnL;
       monthTrades += summary.tradeCount;
+      activeDays += 1;
+      if (summary.realizedPnL > 0) winningDays += 1;
     }
   });
+  const monthWinRate = activeDays > 0 ? Math.round((winningDays / activeDays) * 100) : 0;
+
+  const jumpToLatest = () => {
+    if (entries.length === 0) return;
+    const sorted = [...entries].sort((a, b) => (b.exitDate || b.entryDate).localeCompare(a.exitDate || a.entryDate));
+    const latestStr = sorted[0].exitDate || sorted[0].entryDate;
+    const [yr, mo] = latestStr.split('-').map(Number);
+    if (yr && mo) {
+      setCurrentYear(yr);
+      setCurrentMonth(mo - 1);
+    }
+  };
 
   return (
     <div className="md-card md-card--elevated">
-      <div className="md-card__header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="md-card__header" style={{ flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <CalendarIcon size={18} color="var(--md-sys-color-primary)" />
           <h3 className="md-card__title">
             Trading Calendar Heatmap — {monthNames[currentMonth]} {currentYear}
@@ -88,6 +104,11 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({
           >
             Month P&L: {formatCurrency(monthPnL)} ({monthTrades} trades)
           </span>
+          {activeDays > 0 && (
+            <span className="md-chip md-chip--neutral" style={{ fontSize: 11 }}>
+              Green Days: {winningDays}/{activeDays} ({monthWinRate}%)
+            </span>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -100,6 +121,15 @@ export const CalendarHeatmap: React.FC<CalendarHeatmapProps> = ({
               Clear Filter ({selectedDate})
             </button>
           )}
+
+          <button
+            className="md-button md-button--outlined"
+            style={{ height: 28, padding: '0 10px', fontSize: 11 }}
+            onClick={jumpToLatest}
+            title="Jump to Month of Latest Trade"
+          >
+            Latest Trade
+          </button>
 
           <button className="md-icon-button" onClick={prevMonth} title="Previous Month">
             <ChevronLeft size={18} />

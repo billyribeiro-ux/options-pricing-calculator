@@ -22,10 +22,14 @@ export const VolatilitySurface3D: React.FC<VolatilitySurface3DProps> = ({
     moneynessPct: number;
     days: number;
     iv: number;
+    cursorX: number;
+    cursorY: number;
+    containerWidth: number;
   } | null>(null);
 
   const S0 = params.spotPrice;
   const atmIV = params.atmIV;
+  const skewSlope = params.skewSlope ?? 0.15;
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -63,7 +67,8 @@ export const VolatilitySurface3D: React.FC<VolatilitySurface3DProps> = ({
     const evalSkewIV = (vx: number, vz: number) => {
       const moneyness = (vx / 25) * 0.25; // -25% to +25% OTM
       const days = 10 + ((vz + 20) / 40) * 80;
-      const skew = -0.35 * moneyness + 0.6 * moneyness * moneyness;
+      const effectiveSlope = skewSlope > 0 ? skewSlope * 2.2 : 0.35;
+      const skew = -effectiveSlope * moneyness + 0.6 * moneyness * moneyness;
       const termStructure = 0.04 * Math.log(days / 10);
       const iv = Math.max(0.08, atmIV + skew + termStructure);
       return { moneyness, days, iv };
@@ -154,12 +159,18 @@ export const VolatilitySurface3D: React.FC<VolatilitySurface3DProps> = ({
             strike: S0 * (1 + moneyness),
             moneynessPct: moneyness * 100,
             days,
-            iv
+            iv,
+            cursorX: e.clientX - rect.left,
+            cursorY: e.clientY - rect.top,
+            containerWidth: rect.width
           });
         } else {
           probeMesh.visible = false;
           setHoverInfo(null);
         }
+      } else {
+        probeMesh.visible = false;
+        setHoverInfo(null);
       }
 
       if (!isDragging) return;
@@ -222,34 +233,42 @@ export const VolatilitySurface3D: React.FC<VolatilitySurface3DProps> = ({
       probeMat.dispose();
       renderer.dispose();
     };
-  }, [atmIV, wireframe, autoRotate, cameraPreset, S0]);
+  }, [atmIV, skewSlope, wireframe, autoRotate, cameraPreset, S0]);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: 460 }}>
       <div ref={mountRef} style={{ width: '100%', height: '100%', borderRadius: 12, overflow: 'hidden' }} />
 
-      {hoverInfo && (
-        <div
-          className="md-card md-card--tonal"
-          style={{
-            position: 'absolute',
-            top: 12,
-            right: 12,
-            padding: '10px 14px',
-            fontSize: 12,
-            pointerEvents: 'none',
-            boxShadow: 'var(--md-sys-elevation-level2)',
-            background: 'rgba(17, 19, 24, 0.88)',
-            color: '#e2e2e8',
-            border: '1px solid rgba(255,255,255,0.12)'
-          }}
-        >
-          <div className="label-small" style={{ color: '#94ccff', marginBottom: 4 }}>SVI VOLATILITY PROBE</div>
-          <div>Strike: <span className="mono-small">${hoverInfo.strike.toFixed(1)} ({hoverInfo.moneynessPct >= 0 ? '+' : ''}{hoverInfo.moneynessPct.toFixed(1)}%)</span></div>
-          <div>Term Horizon: <span className="mono-small">{hoverInfo.days.toFixed(0)} DTE</span></div>
-          <div>Implied Vol: <span className="mono-small" style={{ color: '#ffb4ab', fontWeight: 700 }}>{(hoverInfo.iv * 100).toFixed(2)}%</span></div>
-        </div>
-      )}
+      {hoverInfo && (() => {
+        const flipLeft = hoverInfo.cursorX > hoverInfo.containerWidth - 220;
+        const leftPos = flipLeft ? Math.max(8, hoverInfo.cursorX - 205) : hoverInfo.cursorX + 16;
+        const topPos = Math.max(8, Math.min(350, hoverInfo.cursorY - 36));
+        return (
+          <div
+            className="md-card md-card--tonal"
+            style={{
+              position: 'absolute',
+              top: topPos,
+              left: leftPos,
+              width: 195,
+              padding: '10px 14px',
+              fontSize: 12,
+              pointerEvents: 'none',
+              boxShadow: 'var(--md-sys-elevation-level2)',
+              background: 'rgba(17, 19, 24, 0.92)',
+              backdropFilter: 'blur(8px)',
+              color: '#e2e2e8',
+              border: '1px solid rgba(255,255,255,0.14)',
+              zIndex: 10
+            }}
+          >
+            <div className="label-small" style={{ color: '#94ccff', marginBottom: 4 }}>SVI VOLATILITY PROBE</div>
+            <div>Strike: <span className="mono-small">${hoverInfo.strike.toFixed(1)} ({hoverInfo.moneynessPct >= 0 ? '+' : ''}{hoverInfo.moneynessPct.toFixed(1)}%)</span></div>
+            <div>Term Horizon: <span className="mono-small">{hoverInfo.days.toFixed(0)} DTE</span></div>
+            <div>Implied Vol: <span className="mono-small" style={{ color: '#ffb4ab', fontWeight: 700 }}>{(hoverInfo.iv * 100).toFixed(2)}%</span></div>
+          </div>
+        );
+      })()}
 
       <div
         style={{

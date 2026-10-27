@@ -14,7 +14,12 @@ export const Journal3DLandscape: React.FC<Journal3DLandscapeProps> = ({ entries,
   const [mode, setMode] = useState<'mountain' | 'clustering'>('mountain');
   const [wireframe, setWireframe] = useState<boolean>(false);
   const [autoRotate, setAutoRotate] = useState<boolean>(true);
-  const [hoveredTrade, setHoveredTrade] = useState<JournalEntry | null>(null);
+  const [hoveredTrade, setHoveredTrade] = useState<{
+    trade: JournalEntry;
+    cursorX: number;
+    cursorY: number;
+    containerWidth: number;
+  } | null>(null);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -218,12 +223,19 @@ export const Journal3DLandscape: React.FC<Journal3DLandscapeProps> = ({ entries,
         raycaster.setFromCamera(mouse, camera);
         const hits = raycaster.intersectObjects(interactiveMeshes, false);
         if (hits.length > 0 && hits[0].object.userData?.trade) {
-          setHoveredTrade(hits[0].object.userData.trade);
+          setHoveredTrade({
+            trade: hits[0].object.userData.trade,
+            cursorX: e.clientX - rect.left,
+            cursorY: e.clientY - rect.top,
+            containerWidth: rect.width
+          });
           renderer.domElement.style.cursor = 'pointer';
         } else {
           setHoveredTrade(null);
           renderer.domElement.style.cursor = isDragging ? 'grabbing' : 'grab';
         }
+      } else {
+        setHoveredTrade(null);
       }
 
       if (isDragging) {
@@ -345,40 +357,49 @@ export const Journal3DLandscape: React.FC<Journal3DLandscapeProps> = ({ entries,
       <div style={{ flex: 1, position: 'relative' }}>
         <div ref={mountRef} style={{ width: '100%', height: '100%', borderRadius: 12, overflow: 'hidden' }} />
 
-        {hoveredTrade && (
-          <div
-            className="md-card md-card--tonal"
-            style={{
-              position: 'absolute',
-              top: 12,
-              right: 12,
-              padding: '10px 14px',
-              fontSize: 12,
-              pointerEvents: 'none',
-              background: 'rgba(17, 19, 24, 0.9)',
-              color: '#e2e2e8',
-              border: '1px solid rgba(255,255,255,0.14)'
-            }}
-          >
-            <div className="label-small" style={{ color: '#94ccff' }}>
-              {hoveredTrade.symbol} • {hoveredTrade.strategyType.replace(/-/g, ' ').toUpperCase()}
+        {hoveredTrade && (() => {
+          const t = hoveredTrade.trade;
+          const flipLeft = hoveredTrade.cursorX > hoveredTrade.containerWidth - 230;
+          const leftPos = flipLeft ? Math.max(8, hoveredTrade.cursorX - 215) : hoveredTrade.cursorX + 16;
+          const topPos = Math.max(8, Math.min(350, hoveredTrade.cursorY - 36));
+          return (
+            <div
+              className="md-card md-card--tonal"
+              style={{
+                position: 'absolute',
+                top: topPos,
+                left: leftPos,
+                width: 205,
+                padding: '10px 14px',
+                fontSize: 12,
+                pointerEvents: 'none',
+                background: 'rgba(17, 19, 24, 0.92)',
+                backdropFilter: 'blur(8px)',
+                color: '#e2e2e8',
+                border: '1px solid rgba(255,255,255,0.14)',
+                zIndex: 10
+              }}
+            >
+              <div className="label-small" style={{ color: '#94ccff' }}>
+                {t.symbol} • {t.strategyType.replace(/-/g, ' ').toUpperCase()}
+              </div>
+              <div>Date: <span className="mono-small">{t.entryDate}</span></div>
+              <div>
+                P&L:{' '}
+                <span
+                  className="mono-small"
+                  style={{
+                    fontWeight: 700,
+                    color: (t.realizedPnL ?? t.unrealizedPnL ?? 0) >= 0 ? '#57d9a3' : '#ff8f73'
+                  }}
+                >
+                  {formatCurrency(t.realizedPnL ?? t.unrealizedPnL ?? 0)}
+                </span>
+              </div>
+              <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>Click sphere to inspect full trade audit</div>
             </div>
-            <div>Date: <span className="mono-small">{hoveredTrade.entryDate}</span></div>
-            <div>
-              P&L:{' '}
-              <span
-                className="mono-small"
-                style={{
-                  fontWeight: 700,
-                  color: (hoveredTrade.realizedPnL ?? hoveredTrade.unrealizedPnL ?? 0) >= 0 ? '#57d9a3' : '#ff8f73'
-                }}
-              >
-                {formatCurrency(hoveredTrade.realizedPnL ?? hoveredTrade.unrealizedPnL ?? 0)}
-              </span>
-            </div>
-            <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>Click sphere to inspect full trade audit</div>
-          </div>
-        )}
+          );
+        })()}
 
         <div
           style={{

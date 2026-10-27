@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { IronCondorEvaluation, UnderlyingParams } from '../../quant/types';
-import { blackScholes } from '../../quant/blackScholes';
+import { blackScholes, getStrikeIV } from '../../quant/blackScholes';
 import { formatCurrency } from '../../utils/formatters';
 import { CameraPreset } from './SceneContainer';
 
@@ -25,11 +25,15 @@ export const PayoffSurface3D: React.FC<PayoffSurface3DProps> = ({
     price: number;
     dteRemaining: number;
     pnl: number;
+    cursorX: number;
+    cursorY: number;
+    containerWidth: number;
   } | null>(null);
 
   const S0 = params.spotPrice;
   const maxDte = Math.max(1, params.dte);
   const sigma = params.atmIV;
+  const skewSlope = params.skewSlope || 0;
   const contracts = params.contracts;
   const multiplier = contracts * 100;
   const totalCredit = condorEval.totalCreditDollars;
@@ -39,8 +43,9 @@ export const PayoffSurface3D: React.FC<PayoffSurface3DProps> = ({
   const ps = condorEval.putSpread.shortStrike;
   const pl = condorEval.putSpread.longStrike;
 
-  const includeCall = condorEval.mode === 'iron-condor' || condorEval.mode === 'call-spread';
-  const includePut = condorEval.mode === 'iron-condor' || condorEval.mode === 'put-spread';
+  const includeCall = condorEval.mode !== 'put-spread';
+  const includePut = condorEval.mode !== 'call-spread';
+  const hasLongWings = condorEval.mode !== 'short-strangle';
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -88,10 +93,18 @@ export const PayoffSurface3D: React.FC<PayoffSurface3DProps> = ({
 
     const computePnL = (price: number, dteRem: number): number => {
       const T = Math.max(0.0005, dteRem / 365);
-      const sc = includeCall ? blackScholes('call', price, cs, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
-      const lc = includeCall ? blackScholes('call', price, cl, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
-      const sp = includePut ? blackScholes('put', price, ps, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
-      const lp = includePut ? blackScholes('put', price, pl, T, sigma, params.riskFreeRate, params.dividendYield).price : 0;
+      const sc = includeCall
+        ? blackScholes('call', price, cs, T, getStrikeIV(price, cs, sigma, skewSlope), params.riskFreeRate, params.dividendYield).price
+        : 0;
+      const lc = includeCall && hasLongWings
+        ? blackScholes('call', price, cl, T, getStrikeIV(price, cl, sigma, skewSlope), params.riskFreeRate, params.dividendYield).price
+        : 0;
+      const sp = includePut
+        ? blackScholes('put', price, ps, T, getStrikeIV(price, ps, sigma, skewSlope), params.riskFreeRate, params.dividendYield).price
+        : 0;
+      const lp = includePut && hasLongWings
+        ? blackScholes('put', price, pl, T, getStrikeIV(price, pl, sigma, skewSlope), params.riskFreeRate, params.dividendYield).price
+        : 0;
       const currentCost = (-sc + lc - sp + lp) * multiplier;
       return totalCredit + currentCost;
     };
@@ -190,11 +203,21 @@ export const PayoffSurface3D: React.FC<PayoffSurface3DProps> = ({
           const hoveredPrice = minPrice + ((pt.x + 25) / 50) * (maxPrice - minPrice);
           const hoveredDte = Math.max(0, ((pt.z + 20) / 40) * maxDte);
           const hoveredPnL = computePnL(hoveredPrice, hoveredDte);
-          setHoverInfo({ price: hoveredPrice, dteRemaining: hoveredDte, pnl: hoveredPnL });
+          setHoverInfo({
+            price: hoveredPrice,
+            dteRemaining: hoveredDte,
+            pnl: hoveredPnL,
+            cursorX: e.clientX - rect.left,
+            cursorY: e.clientY - rect.top,
+            containerWidth: rect.width
+          });
         } else {
           probeMesh.visible = false;
           setHoverInfo(null);
         }
+      } else {
+        probeMesh.visible = false;
+        setHoverInfo(null);
       }
 
       if (!isDragging) return;
@@ -262,45 +285,53 @@ export const PayoffSurface3D: React.FC<PayoffSurface3DProps> = ({
       probeMat.dispose();
       renderer.dispose();
     };
-  }, [condorEval, params, wireframe, autoRotate, cameraPreset, cs, cl, ps, pl, S0, maxDte, sigma, totalCredit, multiplier, includeCall, includePut]);
+  }, [condorEval, params, wireframe, autoRotate, cameraPreset, cs, cl, ps, pl, S0, maxDte, sigma, skewSlope, totalCredit, multiplier, includeCall, includePut, hasLongWings]);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: 460 }}>
       <div ref={mountRef} style={{ width: '100%', height: '100%', borderRadius: 12, overflow: 'hidden' }} />
 
-      {hoverInfo && (
-        <div
-          className="md-card md-card--tonal"
-          style={{
-            position: 'absolute',
-            top: 12,
-            right: 12,
-            padding: '10px 14px',
-            fontSize: 12,
-            pointerEvents: 'none',
-            boxShadow: 'var(--md-sys-elevation-level2)',
-            background: 'rgba(17, 19, 24, 0.88)',
-            color: '#e2e2e8',
-            border: '1px solid rgba(255,255,255,0.12)'
-          }}
-        >
-          <div className="label-small" style={{ color: '#94ccff', marginBottom: 4 }}>3D SURFACE PROBE</div>
-          <div>Underlying Price: <span className="mono-small">${hoverInfo.price.toFixed(2)}</span></div>
-          <div>Time Remaining: <span className="mono-small">{hoverInfo.dteRemaining.toFixed(1)} DTE</span></div>
-          <div>
-            Theoretical P&L:{' '}
-            <span
-              className="mono-small"
-              style={{
-                fontWeight: 700,
-                color: hoverInfo.pnl >= 0 ? '#57d9a3' : '#ff8f73'
-              }}
-            >
-              {hoverInfo.pnl >= 0 ? '+' : ''}{formatCurrency(hoverInfo.pnl)}
-            </span>
+      {hoverInfo && (() => {
+        const flipLeft = hoverInfo.cursorX > hoverInfo.containerWidth - 220;
+        const leftPos = flipLeft ? Math.max(8, hoverInfo.cursorX - 205) : hoverInfo.cursorX + 16;
+        const topPos = Math.max(8, Math.min(350, hoverInfo.cursorY - 36));
+        return (
+          <div
+            className="md-card md-card--tonal"
+            style={{
+              position: 'absolute',
+              top: topPos,
+              left: leftPos,
+              width: 195,
+              padding: '10px 14px',
+              fontSize: 12,
+              pointerEvents: 'none',
+              boxShadow: 'var(--md-sys-elevation-level2)',
+              background: 'rgba(17, 19, 24, 0.92)',
+              backdropFilter: 'blur(8px)',
+              color: '#e2e2e8',
+              border: '1px solid rgba(255,255,255,0.14)',
+              zIndex: 10
+            }}
+          >
+            <div className="label-small" style={{ color: '#94ccff', marginBottom: 4 }}>3D SURFACE PROBE</div>
+            <div>Underlying Price: <span className="mono-small">${hoverInfo.price.toFixed(2)}</span></div>
+            <div>Time Remaining: <span className="mono-small">{hoverInfo.dteRemaining.toFixed(1)} DTE</span></div>
+            <div>
+              Theoretical P&L:{' '}
+              <span
+                className="mono-small"
+                style={{
+                  fontWeight: 700,
+                  color: hoverInfo.pnl >= 0 ? '#57d9a3' : '#ff8f73'
+                }}
+              >
+                {hoverInfo.pnl >= 0 ? '+' : ''}{formatCurrency(hoverInfo.pnl)}
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <div
         style={{

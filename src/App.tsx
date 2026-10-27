@@ -418,6 +418,23 @@ export const App: React.FC = () => {
           setPutShort(nearest - gap);
           setPutLong(nearest - gap * 2);
         }}
+        onSelectMode={(m) => {
+          setStrategyMode(m);
+          if (m === 'iron-butterfly') {
+            const atm = Math.round(params.spotPrice / params.strikeGap) * params.strikeGap;
+            setCallShort(atm);
+            setCallLong(atm + params.strikeGap * 2);
+            setPutShort(atm);
+            setPutLong(atm - params.strikeGap * 2);
+          }
+        }}
+        onShareSetup={handleShareSetup}
+        onToggleSkew={() =>
+          setParams((prev) => ({
+            ...prev,
+            skewSlope: (prev.skewSlope || 0) > 0 ? 0 : 0.15
+          }))
+        }
         onToggleTheme={handleToggleTheme}
         onOpenLogModal={() => setIsLogModalOpen(true)}
         theme={theme}
